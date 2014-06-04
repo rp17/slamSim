@@ -8,7 +8,15 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Queue;
 
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.Scalar;
+
+import raven.efkslam.ConfigFile;
+import raven.efkslam.EfkSlamSim;
 import raven.game.Waypoints;
+import raven.game.Waypoints.Wpt;
 import raven.game.interfaces.IRavenBot;
 import raven.game.navigation.NavGraphEdge;
 import raven.game.navigation.PathEdge;
@@ -18,12 +26,16 @@ import raven.goals.Goal_PIDFollowPath;
 import raven.goals.GoalRoverThink;
 import raven.math.Vector2D;
 import raven.math.RandUtils;
+import raven.slam.Landmarks;
+import raven.slam.Slam;
+import raven.slam.Landmarks.Landmark;
 import raven.ui.GameCanvas;
 
 import raven.utils.PIDcontroller;
 import raven.utils.Regulator;
 
 public class RoverBot extends RavenBot {
+	
 	//protected GoalRoverThink reason;
 	private final double brakingRate = 20; // pixel/sec^2
 	private final double accelRate = 30; // pixel/sec^2
@@ -38,6 +50,7 @@ public class RoverBot extends RavenBot {
 	private boolean doPID = false;
 	protected PIDcontroller pid = new PIDcontroller(0.7f, 0.8f, 0.1f);
 	protected Waypoints track = new Waypoints();
+	
 	protected Regulator trackRegulator = new Regulator(200);
 	
 	public RoverBot(RavenGame world, Vector2D pos, Goal.GoalType mode) {
@@ -96,8 +109,6 @@ public class RoverBot extends RavenBot {
 	 */
 	@Override
 	protected void updateMovement(double delta) { // delta in seconds
-		
-		
 		// (2do) pid control, acceleration, deceleration depending on doPID value
 		
 		if(!doPID && speed == 0) return;
@@ -106,9 +117,6 @@ public class RoverBot extends RavenBot {
 		double steerAngleDeg = Math.toDegrees(steerAngle);
 		double noiseSteerAngleDeg = RandUtils.nextGaussian(steerAngleDeg, steeringNoise);
 		noiseSteerAngleDeg += steeringDrift;
-		
-		//System.out.println("Old steer angle: " + steerAngleDeg);
-		//System.out.println("New steer angle: " + noiseSteerAngleDeg);
 		
 		if (doPID) {
 			if(speed < maxSpeed*1.0) {
@@ -123,6 +131,7 @@ public class RoverBot extends RavenBot {
 				pt.x = position.x;
 				pt.y = position.y;
 				track.addWpt(pt);
+				
 				System.out.println("Added track point at= x:" + position.x + ", y:" + position.y);
 			}
 			float error = getCTE();
@@ -143,111 +152,21 @@ public class RoverBot extends RavenBot {
 		heading.x = Math.cos(noiseSteerAngle);
 		heading.y = Math.sin(noiseSteerAngle);
 		side = heading.perp();
-		//double velX = Math.cos(noiseSteerAngle)*speed;
-		//double velY = Math.sin(noiseSteerAngle)*speed;
 		
 		double velX = heading.x*speed;
 		double velY = heading.y*speed;
 		
 		// calculate delta distance due to distance noise
 		double distNoise = RandUtils.nextGaussian(0, distanceNoise);
-		//double distNoiseX = distNoise*Math.cos(noiseSteerAngle);
-		//double distNoiseY = distNoise*Math.sin(noiseSteerAngle);
-		
 		
 		velocity.x = velX;
 		velocity.y = velY;
 		position.x += velX*delta + distNoise*heading.x;
 		position.y += velY*delta + distNoise*heading.y;
-		
-		//if the vehicle has a non zero velocity the heading and side vectors must 
-		//be updated
-		/*
-		if (speed > 1)
-		{    
-			heading.x = velocity.x;
-			heading.y = velocity.y;
-			heading.normalize();
-			side = heading.perp();
-		}
-		*/
 	}
 	
 	public Waypoints getTrack()
 	{
 		return this.track;
 	}
-	
-//	@Override
-//	public void render() {
-//		super.render();
-//		track.render();
-//	}
-	
-	/*
-	@Override
-	protected void updateMovement(double delta) {
-		//calculate the combined steering force
-		Vector2D forceIni = steering.calculate();
-
-		double steerAngle = Math.atan2(forceIni.y, forceIni.x);
-		double steerAngleDeg = Math.toDegrees(steerAngle);
-		double noiseSteerAngleDeg = RandUtils.nextGaussian(steerAngleDeg, steeringNoise);
-		noiseSteerAngleDeg += steeringDrift;
-		double noiseSteerAngle = Math.toRadians(noiseSteerAngleDeg);
-		System.out.println("Old steer angle: " + steerAngleDeg);
-		System.out.println("New steer angle: " + noiseSteerAngleDeg);
-		double forceIniLength = forceIni.length();
-		Vector2D force = new Vector2D(Math.cos(noiseSteerAngle)*forceIniLength, Math.sin(noiseSteerAngle)*forceIniLength);
-		//force.normalize();
-		System.out.println("Old steer length: " + forceIniLength);
-		System.out.println();
-		//force.mul(forceIni.length());
-		System.out.println("Old steer: x = " + forceIni.x + ", y = " + forceIni.y);
-		System.out.println("New steer: x = " + force.x + ", y = " + force.y);
-		System.out.println("\n");
-		//if no steering force is produced decelerate the player by applying a
-		//braking force
-		if (steering.force().isZero())
-		{
-			final double BrakingRate = 0.8; 
-
-			velocity = velocity.mul(BrakingRate);                                     
-		}
-		
-		//calculate the acceleration
-		Vector2D revForce = force.getReverse();
-		revForce.normalize();
-		revForce.mul(frictForceMag);
-		force = force.sub(revForce);
-		Vector2D accel = force.div(mass);
-
-		//update the velocity
-		velocity = velocity.add(accel.mul(delta));
-		//velocity = velocity.add(accel);
-		
-		//make sure vehicle does not exceed maximum velocity per second
-		velocity.truncate(maxSpeed * delta);
-		double dist = velocity.length();
-		dist = RandUtils.nextGaussian(dist, distanceNoise);
-		velocity.normalize();
-		velocity.mul(dist);
-
-		//update the position
-		position = position.add(velocity);
-
-		//if the vehicle has a non zero velocity the heading and side vectors must 
-		//be updated
-		if (!velocity.isZero())
-		{    
-			heading = new Vector2D(velocity);
-			heading.normalize();
-
-			side = heading.perp();
-		}
-	
-	}
-	*/
-	
-	
 }

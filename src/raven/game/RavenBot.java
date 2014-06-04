@@ -112,6 +112,13 @@ public class RavenBot extends MovingEntity implements IRavenBot {
 
 	/** the buffer for the transformed vertices */
 	transient protected ArrayList<Vector2D> vecBotVBTrans;
+	
+	protected Vector2D pos_slam;
+	
+	public void update_position_slam(Vector2D pos)
+	{
+		pos_slam = pos;
+	}
 
 
 	/**
@@ -350,12 +357,6 @@ public class RavenBot extends MovingEntity implements IRavenBot {
 		// thick red circle drawn around it (to indicate it's been hit) The
 		// circle is drawn as long as this value is positive. (see Render)
 
-		/*
-		if (isDead() || isSpawning()) {
-			return;
-		}
-		 */
-		
 		GameCanvas.bluePen();
 
 		vecBotVBTrans = new ArrayList<Vector2D>(Transformations.WorldTransform(
@@ -385,23 +386,7 @@ public class RavenBot extends MovingEntity implements IRavenBot {
 		GameCanvas.redPen();
 		GameCanvas.textAtPos(pos().x - 10, pos().y - 20,
 				Integer.toString(ID()));
-		/*
-		if (RavenUserOptions.showBotIDs) {
-			GameCanvas.textAtPos(pos().x - 10, pos().y - 20,
-					Integer.toString(ID()));
-		}
-		 */
-		/*
-		if (RavenUserOptions.showBotHealth) {
-			GameCanvas.textAtPos(pos().x - 40, pos().y - 5,
-					"H:" + Integer.toString(health()));
-		}
-
-		if (RavenUserOptions.showScore) {
-			GameCanvas.textAtPos(pos().x - 40, pos().y + 10,
-					"Scr:" + Integer.toString(score()));
-		}
-		*/
+		
 		if (RavenUserOptions.showFeelersOfSelectedBot) {
 			steering.renderFeelers();
 		}

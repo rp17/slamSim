@@ -9,6 +9,13 @@
 	<classpathentry kind="lib" path="lib/xstream-1.4.4/lib/xstream-1.4.4.jar"/>
 	<classpathentry kind="lib" path="lib/xstream-1.4.4/lib/xstream/xpp3_min-1.1.4c.jar"/>
 	<classpathentry kind="lib" path="lib/xstream-1.4.4/lib/xstream/xmlpull-1.1.3.1.jar"/>
+	<classpathentry kind="lib" path="opencv/java/opencv-248.jar">
+		<attributes>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="Raven/opencv/java/x86"/>
+		</attributes>
+	</classpathentry>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/OpenCV"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/OpenNI"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

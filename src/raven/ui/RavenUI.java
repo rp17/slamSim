@@ -134,6 +134,14 @@ public class RavenUI extends JFrame implements KeyListener, MouseInputListener, 
 		});
 	    popup.add(menuItem);
 	    
+	    menuItem = new JMenuItem("Plot EKF Slam Path");
+	    menuItem.addActionListener(new ActionListener() {
+	    	@Override public void actionPerformed(ActionEvent e) {
+				game.plotEFKSlamPath();
+			}
+		});
+	    popup.add(menuItem);
+	    
 	    //************
 		
 	    menuItem = new JMenuItem("Add bot");

@@ -63,12 +63,9 @@ public class Waypoints {
 		}
 		else
 		{
-		//GameCanvas.lineColor(this.color);
-		for (int i=0; i<wpts.size()-1; i++) {
-			//GameCanvas.lineWithArrow(wpts.get(i).pos, wpts.get(i+1).pos, 2.0);
-			//GameCanvas.line(wpts.get(i).pos.x, wpts.get(i).pos.y, wpts.get(i+1).pos.x, wpts.get(i+1).pos.y);
-			GameCanvas.filledCircle(wpts.get(i).pos, 2);
-			System.out.println();
+			GameCanvas.lineColor(this.color);
+			for (int i=0; i<wpts.size()-1; i++) {
+				GameCanvas.lineWithArrow(wpts.get(i).pos, wpts.get(i+1).pos, 1.0);
 			}
 		}
 	}
