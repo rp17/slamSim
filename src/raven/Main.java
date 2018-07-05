@@ -1,11 +1,14 @@
 package raven;
 
+import raven.efkslam.ConfigFile;
 import raven.game.RavenGame;
 import raven.ui.GameCanvas;
 import raven.ui.RavenUI;
 import raven.utils.Log;
 import raven.utils.Log.Level;
 import javax.swing.SwingUtilities;
+
+import org.opencv.core.Core;
 
 //import org.opencv.core.Core;
 
@@ -15,7 +18,7 @@ public class Main {
 	
     public static void main(String args[]) {
     	//TODO: added for slam
-    	//System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+    	System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     	
     	Log.setLevel(Level.DEBUG);
     	
@@ -46,6 +49,7 @@ public class Main {
     		
     		long currentTime = System.nanoTime();
 
+    		//game.update(ConfigFile.DT_CONTROLS);
     		game.update((currentTime - lastTime) * 1.0e-9); // converts nano to seconds
     		lastTime = currentTime;
     		// Always dispose the canvas

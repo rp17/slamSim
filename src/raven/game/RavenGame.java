@@ -1,5 +1,6 @@
 package raven.game;
 
+import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.event.KeyEvent;
 import java.awt.Dimension;
@@ -13,6 +14,10 @@ import javax.swing.JFileChooser;
 import javax.swing.filechooser.FileFilter;
 import javax.swing.JPanel;
 
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+
+import raven.efkslam.SlamSim;
 import raven.game.armory.Bolt;
 import raven.game.armory.Pellet;
 import raven.game.armory.RavenProjectile;
@@ -29,6 +34,7 @@ import raven.math.Vector2D;
 import raven.math.WallIntersectionTest;
 import raven.script.RavenScript;
 import raven.slam.Landmarks.Landmark;
+import raven.slam.Slam;
 import raven.ui.GameCanvas;
 import raven.ui.RavenUI;
 import raven.utils.Log;
@@ -66,6 +72,8 @@ public class RavenGame {
 	GraveMarkers graveMarkers = new GraveMarkers(RavenScript.getDouble("GraveLifetime"));
 	
 	Waypoints wpts = new Waypoints();
+	Waypoints track_slam = new Waypoints();
+	Waypoints trueTrack = new Waypoints();
 	private Regulator botUpdateRegulator = new Regulator(200); // 200Hz updates
 	
 	/** Holds a request to load a new map. This is set from another thread */
@@ -74,8 +82,19 @@ public class RavenGame {
 	
 	//TODO: add items for slam
 	//Slam slam = new Slam();
+	SlamSim slamsim = new SlamSim();
 	Landmarks landmarks = new Landmarks();
 
+	public Waypoints getTrackSlam()
+	{
+		return this.track_slam;
+	}
+	
+	public void setTrackerSlam(Waypoints track_slam)
+	{
+		this.track_slam = track_slam;
+	}
+	
 	private void clear() {
 		Log.debug("game", "Clearing Map");
 		// delete the bots
@@ -151,6 +170,14 @@ public class RavenGame {
 		landmarks.render();
 		graveMarkers.render();
 		
+		track_slam.setColor(Color.GREEN);
+		track_slam.setDrawPoint(false);
+		track_slam.render();
+		
+		trueTrack.setColor(Color.RED);
+		trueTrack.setDrawPoint(false);
+		trueTrack.render();
+		
 		for (IRavenBot bot : bots) {
 			bot.render();
 			
@@ -158,6 +185,11 @@ public class RavenGame {
 			{
 				Waypoints track = ((RoverBot)bot).getTrack();
 				track.render();
+				//System.out.println("Track count: " + track.size());
+				
+				//System.out.println("Track slam count: " + track_slam.size());
+				//this.track_slam = track_slam;
+				//this.track_slam.render();
 			}
 		}
 		
@@ -262,103 +294,26 @@ public class RavenGame {
 			}
 		}
 		
-		// Check bot adding and removal
-		/*
-		while (botsToAdd != 0) {
-			if (botsToAdd < 0) {
-				removeBot();
-				botsToAdd++;
-			} else {
-				addBots(botsToAdd);
-				botsToAdd = 0;
-			}
-		}
-		*/
-		
 		// don't update if the user has paused the game
 		if (paused) {
 			return;
 		}
 		
-		//graveMarkers.update(delta);
-		
-		// Update a player controlled bot
-		//getPlayerInput(delta);
-		
 		// update all the queued searches in the path manager
 		pathManager.updateSearches();
-		
-		// update any doors
-		/*
-		for (RavenDoor door : map.getDoors()) {
-			door.update(delta);
-		}
-		*/
-		// update any current projectiles
-		/*
-		HashSet<RavenProjectile> toRemove = new HashSet<RavenProjectile>();
-		for (RavenProjectile projectile : projectiles) {
-			if (projectile.IsDead()) {
-				toRemove.add(projectile);
-			} else {
-				projectile.update(delta);
-			}
-		}
-		projectiles.removeAll(toRemove);
-		*/
-		
-		// update the bots
-		//boolean spawnPossible = true;
-		//Log.trace("game", "bots total " + bots.size());
-		
 		botUpdateRegulator.update(delta);
 		if(botUpdateRegulator.isReady()) {
 			double itsDelta = botUpdateRegulator.getItsDelta();
-			//System.out.println("Bot Delta = " + itsDelta);
-			for (IRavenBot bot : bots) {
+			System.out.println("Bot Delta = " + itsDelta);
+			for (IRavenBot bot : bots) 
+			{
 				bot.update(itsDelta);
+				System.out.println("Bot is in: " + bot.pos().x + ", " + bot.pos().y);
 			}
 		}
 		
-		/*
-		for (IRavenBot bot : bots) {
-			// if this bot's status is 'respawning' attempt to resurrect it
-			// from an unoccupied spawn point
-			if (bot.isSpawning() && spawnPossible) {
-				spawnPossible = attemptToAddBot(bot);
-			}
-			// if this bot's status is 'dead' add a grave at its current
-			// location then change its status to 'respawning'
-			else if (bot.isDead()) {
-				graveMarkers.addGrave(bot.pos());
-				bot.setSpawning();
-			}
-		    // if this bot is alive update it.
-			else if (bot.isAlive()) {
-				bot.update(delta);
-			}
-		}
-		*/
 		// update the triggers
 		map.updateTriggerSystem(delta, bots);
-		
-		// if the user has requested that the number of bots be decreased,
-		// remove one
-		/*
-		if (removeBot) {
-			Log.info("game", "Removing bot at user request");
-			if (!bots.isEmpty()) {
-				IRavenBot bot = bots.get(bots.size() - 1);
-				if (bot.equals(selectedBot)) {
-					selectedBot = null;
-				}
-				notifyAllBotsOfRemoval(bot);
-				bots.remove(bot);
-			}
-			
-			removeBot = false;
-		}
-		*/
 	}
 
 	private void initBots() {
@@ -766,6 +721,7 @@ public class RavenGame {
 	}
 	public boolean isPaused(){return paused;}
 	public void addWpt(Vector2D pos){
+		System.out.println("Added wpt at: " + pos.x +" " + pos.y);
 		wpts.addWpt(pos);
 	}
 	public void clearWpts(){
@@ -785,30 +741,37 @@ public class RavenGame {
 		bot.getSteering().wallAvoidanceOn();
 		bot.getSteering().separationOn();
 		bots.add(bot);
+		//slam.initKalman(pos.x, pos.y);
+		slamsim.setWaypoints(wpts);
+		slamsim.setLandmarks(landmarks);
+		slamsim.initialize(pos.x, pos.y);
+		
 		Log.info("game", "Bot " + bot.ID() + " added");
 					
 		// register the bot with the entity manager
 		EntityManager.registerEntity(bot);
-					
-		// Give this bot a default goal
-		// bot.getBrain().addGoal_explore();
-		//	bot.getBrain().activate();
+
 		return available;
 	}
+	
 	public void removeBot(IRavenBot bot){
 		bot.getBrain().removeAllSubgoals();
 		bots.remove(bot);
 	}
 
 	public boolean addLandmarkAt(Vector2D pos) {
-		// TODO: code to add landmark
 		landmarks.addLandmark(pos);
 		return true;
 	}
 	
 	public void clearLandmarks(){
-		// TODO: code to clear landmarks
 		landmarks.clearLandmarks();
+	}
+	
+	public void plotEFKSlamPath(){
+		slamsim.run();
+		this.track_slam = slamsim.getSlamPath();
+		this.trueTrack = slamsim.getTrueTrack();
 	}
 	
 	public Landmarks getLandmarks() {return landmarks;}
