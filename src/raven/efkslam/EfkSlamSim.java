@@ -584,7 +584,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static Mat[] get_observations(Mat x, Mat lm, Mat idf, double rmax)
+	public synchronized static Mat[] get_observations(Mat x, Mat lm, Mat idf, double rmax)
 	{
 		Mat[] retValue = new Mat[2];
 		Mat z = new Mat(2, 1, CvType.CV_64F);
@@ -682,7 +682,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static Mat[] observe_heading(Mat x, Mat P, double phi, boolean useheading)
+	public synchronized static Mat[] observe_heading(Mat x, Mat P, double phi, boolean useheading)
 	{
 		Mat[] retValue = new Mat[2];
 		retValue[0] = x;
@@ -701,7 +701,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static Mat[] predict(Mat x, Mat P, double v, double g, Mat Q, double WB, double dt)
+	public synchronized static Mat[] predict(Mat x, Mat P, double v, double g, Mat Q, double WB, double dt)
 	{
 		Mat[] retValue = new Mat[2];
 		double s = Math.sin(g + x.get(2, 0)[0]);
@@ -761,7 +761,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static double[] add_control_noise(double V, double G, Mat Q, boolean addnoise)
+	public synchronized static double[] add_control_noise(double V, double G, Mat Q, boolean addnoise)
 	{
 		double[] retValue = new double[2];
 		retValue[0] = V;
@@ -777,7 +777,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static Mat vehicle_model(Mat xv, double V, double G, double WB, double dt)
+	public synchronized static Mat vehicle_model(Mat xv, double V, double G, double WB, double dt)
 	{
 		xv.put(0, 0, xv.get(0, 0)[0] + V * dt * Math.cos(G + xv.get(2, 0)[0]));
 		xv.put(1, 0, xv.get(1, 0)[0] + V * dt * Math.sin(G + xv.get(2, 0)[0]));
@@ -786,7 +786,7 @@ public class EfkSlamSim
 		return xv;
 	}
 	
-	public static Object[] compute_steering(Mat x, Mat wp, int iwp, double minD, double G, double rateG, double maxG, double dt)
+	public synchronized static Object[] compute_steering(Mat x, Mat wp, int iwp, double minD, double G, double rateG, double maxG, double dt)
 	{
 		Object[] retValue = new Object[2];
 		retValue[0] = G;

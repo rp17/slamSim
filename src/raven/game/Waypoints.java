@@ -26,6 +26,14 @@ public class Waypoints {
 			y = pos.y;
 			name = "WP" + wpts.size();
 		}
+		public void setX(double x){
+			this.x = x;
+			pos.x = x;
+		}
+		public void setY(double y){
+			this.y = y;
+			pos.y = y;
+		}
 	}
 	
 	public void setColor(Color color)

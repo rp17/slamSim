@@ -16,7 +16,7 @@ import raven.slam.Landmarks.Landmark;
 
 import raven.ui.GameCanvas;
 
-public class SlamSim {
+public class SlamSim implements Runnable {
 
 	Mat wp;
 	Mat lm;

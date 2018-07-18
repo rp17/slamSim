@@ -43,6 +43,8 @@ import raven.utils.Regulator;
 import raven.Main;
 import raven.slam.Landmarks;
 
+import raven.efkslam.ConfigFile;
+
 public class RavenGame {
 	/** the current game map */
 	private RavenMap map;
@@ -74,6 +76,11 @@ public class RavenGame {
 	Waypoints wpts = new Waypoints();
 	Waypoints track_slam = new Waypoints();
 	Waypoints trueTrack = new Waypoints();
+	
+	Waypoints wptsSecond = new Waypoints();
+	Waypoints track_slamSecond = new Waypoints();
+	Waypoints trueTrackSecond = new Waypoints();
+	
 	private Regulator botUpdateRegulator = new Regulator(200); // 200Hz updates
 	
 	/** Holds a request to load a new map. This is set from another thread */
@@ -84,6 +91,9 @@ public class RavenGame {
 	//Slam slam = new Slam();
 	SlamSim slamsim = new SlamSim();
 	Landmarks landmarks = new Landmarks();
+	
+	SlamSim slamsimSecond = new SlamSim();
+	Landmarks landmarksSecond = new Landmarks();
 
 	public Waypoints getTrackSlam()
 	{
@@ -166,8 +176,12 @@ public class RavenGame {
 		Log.trace("game", "Rendering game");
 		// render the map
 		map.render();
+		
 		wpts.render();
 		landmarks.render();
+		wptsSecond.render();
+		landmarksSecond.render();
+		
 		graveMarkers.render();
 		
 		track_slam.setColor(Color.GREEN);
@@ -178,6 +192,13 @@ public class RavenGame {
 		trueTrack.setDrawPoint(false);
 		trueTrack.render();
 		
+		track_slamSecond.setColor(Color.GREEN);
+		track_slamSecond.setDrawPoint(false);
+		track_slamSecond.render();
+		
+		trueTrackSecond.setColor(Color.RED);
+		trueTrackSecond.setDrawPoint(false);
+		trueTrackSecond.render();
 		for (IRavenBot bot : bots) {
 			bot.render();
 			
@@ -746,6 +767,23 @@ public class RavenGame {
 		slamsim.setLandmarks(landmarks);
 		slamsim.initialize(pos.x, pos.y);
 		
+		Vector2D pos2 = new Vector2D(pos.x, pos.y + ConfigFile.SHIFT_Y);
+		Waypoints.Wpt wp;
+		for(int i = 0; i<wpts.size(); i++) {
+			wp = wpts.get(i);
+			Vector2D posWpt = new Vector2D(wp.x, wp.y + ConfigFile.SHIFT_Y);
+			wptsSecond.addWpt(posWpt);
+		}
+		Landmarks.Landmark landmrk;
+		for(int i=0; i<landmarks.size(); i++) {
+			landmrk = landmarks.get(i);
+			landmarksSecond.addLandmark(new Vector2D(landmrk.x, landmrk.y + ConfigFile.SHIFT_Y));
+		}
+		
+		slamsimSecond.setWaypoints(wptsSecond);
+		slamsimSecond.setLandmarks(landmarksSecond);
+		slamsimSecond.initialize(pos2.x, pos2.y);
+		
 		Log.info("game", "Bot " + bot.ID() + " added");
 					
 		// register the bot with the entity manager
@@ -769,9 +807,23 @@ public class RavenGame {
 	}
 	
 	public void plotEFKSlamPath(){
-		slamsim.run();
+		Thread t_slamBotFirst = new Thread(slamsim);
+		Thread t_slamBotSecond = new Thread(slamsimSecond);
+		//slamsim.run();
+		t_slamBotFirst.start();
+		t_slamBotSecond.start();
+		try {
+			t_slamBotFirst.join();
+			t_slamBotSecond.join();
+		}
+		catch(InterruptedException ex){
+			ex.printStackTrace();
+		}
 		this.track_slam = slamsim.getSlamPath();
 		this.trueTrack = slamsim.getTrueTrack();
+		
+		this.track_slamSecond = slamsimSecond.getSlamPath();
+		this.trueTrackSecond = slamsimSecond.getTrueTrack();
 	}
 	
 	public Landmarks getLandmarks() {return landmarks;}

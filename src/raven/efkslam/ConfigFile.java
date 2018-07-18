@@ -4,6 +4,7 @@ import org.opencv.core.Mat;
 
 public class ConfigFile 
 {
+	public final static int SHIFT_Y = 100;
 	//control parameters
 	public static double V = 3; //m/s
 	public static double MAXG= 30*Math.PI/180;// radians, maximum steering angle (-MAXG < g < MAXG)
