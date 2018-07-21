@@ -41,7 +41,17 @@ public class Main {
 	private static void gameLoop() {
     	
     	Log.info("raven", "Starting game...");
-    	
+    	Runnable gameRenderRunnable = new Runnable() {
+	  	      public void run() {
+	  	    	GameCanvas.startDrawing();
+	  	    	game.render();
+	  	      }
+	  	    };
+	  	Runnable stopDrawingRunnable = new Runnable() {
+	  	      public void run() {
+	  	    	GameCanvas.stopDrawing();
+	  	      }
+	  	    };
     	long lastTime = System.nanoTime();
     	
     	while (true) {
@@ -50,27 +60,21 @@ public class Main {
     		long currentTime = System.nanoTime();
 
     		//game.update(ConfigFile.DT_CONTROLS);
-    		game.update((currentTime - lastTime) * 1.0e-9); // converts nano to seconds
+    		// no need to invoke game.update for SlamSim simulation
+    		//game.update((currentTime - lastTime) * 1.0e-9); // converts nano to seconds
+    		
     		lastTime = currentTime;
+    		
     		// Always dispose the canvas
     		//if(game.getMap() != null){
     		//if(!game.isPaused()) {
     			try {
     				//GameCanvas.startDrawing(game.getMap().getSizeX(), game.getMap().getSizeY());
     				
-    				SwingUtilities.invokeLater(new Runnable() {
-    			  	      public void run() {
-    			  	    	GameCanvas.startDrawing();
-    			  	    	game.render();
-    			  	      }
-    			  	    });
+    				SwingUtilities.invokeLater(gameRenderRunnable);
     				
     			} finally {
-    				SwingUtilities.invokeLater(new Runnable() {
-  			  	      public void run() {
-  			  	    	GameCanvas.stopDrawing();
-  			  	      }
-  			  	    });
+    				SwingUtilities.invokeLater(stopDrawingRunnable);
     				
     			}
     		//}
@@ -80,8 +84,9 @@ public class Main {
 			
 			try {
 				Thread.sleep(millisToNextUpdate);
-			} catch (InterruptedException e) {
-				break;
+			} catch (InterruptedException ex) {
+				ex.printStackTrace();
+				break; // breaking out of the while(true) loop
 			}
     	}
     }
