@@ -81,9 +81,8 @@ public class Main {
     		//}
     		
     		long millisToNextUpdate = (long) Math.max(0, 16.66667 - (System.nanoTime() - currentTime)*1.0e-6);
-			
 			try {
-				Thread.sleep(millisToNextUpdate);
+				Thread.sleep(millisToNextUpdate);	
 			} catch (InterruptedException ex) {
 				ex.printStackTrace();
 				break; // breaking out of the while(true) loop
