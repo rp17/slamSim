@@ -7,6 +7,7 @@ import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
+import org.opencv.core.Point;
 
 import raven.game.Waypoints;
 import raven.game.Waypoints.Wpt;
@@ -15,9 +16,11 @@ import raven.slam.Landmarks;
 import raven.slam.Landmarks.Landmark;
 
 import raven.ui.GameCanvas;
+import raven.utils.BoundedBuffer;
 
 public class SlamSim implements Runnable {
-
+	private String name;
+	private EfkSlamSim efkSlam = new EfkSlamSim();
 	Mat wp;
 	Mat lm;
 	Mat veh;
@@ -35,12 +38,15 @@ public class SlamSim implements Runnable {
 	double G; //initial steer angle
 	int iteration;
 	
+	raven.utils.BoundedBuffer<Pose> buffer;
 	Waypoints path;
 	
 	Waypoints trueTrack;
 	
-	public SlamSim()
+	public SlamSim(String name, BoundedBuffer<Pose> buffer)
 	{
+		this.name = name;
+		this.buffer = buffer;
 		path = new Waypoints();
 		trueTrack = new Waypoints();
 	}
@@ -114,13 +120,13 @@ public class SlamSim implements Runnable {
 	{
 		Vector2D position = new Vector2D();
 		
-		while(iwp != -1)
+		while(iwp != -1) // loop iterates over waypoints
 		{
 			iteration++;
 			//compute true data
-			Object[] retValue = EfkSlamSim.compute_steering(xtrue, wp, iwp, ConfigFile.AT_WAYPOINT, G, ConfigFile.RATEG, ConfigFile.MAXG, dt);
-			G = (double)retValue[0];
-			iwp = (int)retValue[1];
+			Object[] retValue = efkSlam.compute_steering(xtrue, wp, iwp, ConfigFile.AT_WAYPOINT, G, ConfigFile.RATEG, ConfigFile.MAXG, dt);
+			G = (double)retValue[0]; // steer angle
+			iwp = (int)retValue[1]; // waypoint index
 			
 			if (iwp == -1 && ConfigFile.NUMBER_LOOPS > 1) //perform loops: if final waypoint reached, go back to first
 			{
@@ -128,21 +134,23 @@ public class SlamSim implements Runnable {
 				ConfigFile.NUMBER_LOOPS = ConfigFile.NUMBER_LOOPS - 1; 
 			}
 			
-			xtrue = EfkSlamSim.vehicle_model(xtrue, ConfigFile.V, G, ConfigFile.WHEELBASE, dt);
+			xtrue = efkSlam.vehicle_model(xtrue, ConfigFile.V, G, ConfigFile.WHEELBASE, dt);
 			
 			double Vn;
 			double Gn;
-			double[] retValue1 = EfkSlamSim.add_control_noise(ConfigFile.V, G, ConfigFile.Q(), ConfigFile.SWITCH_CONTROL_NOISE);
-			Vn = retValue1[0];
-			Gn = retValue1[1];
+			double[] retValue1 = efkSlam.add_control_noise(ConfigFile.V, G, ConfigFile.Q(), ConfigFile.SWITCH_CONTROL_NOISE);
+			Vn = retValue1[0]; // speed
+			Gn = retValue1[1]; // steer angle
 			
 			//EKF predict step
-		    Mat[] retValue2 = EfkSlamSim.predict (x,P, Vn, Gn, QE, ConfigFile.WHEELBASE, dt);
-		    x = retValue2[0];
-		    P = retValue2[1];
+		    Mat[] retValue2 = efkSlam.predict (x,P, Vn, Gn, QE, ConfigFile.WHEELBASE, dt);
+		    x = retValue2[0]; // SLAM state vector, robot pose - position and orientation
+		    P = retValue2[1]; // the diagonals of the SLAM covariance matrix
 		    
 		    //if heading known, observe heading
-			Mat[] retValue3 = EfkSlamSim.observe_heading(x, P, xtrue.get(2, 0)[0], ConfigFile.SWITCH_HEADING_KNOWN);
+			Mat[] retValue3 = efkSlam.observe_heading(x, P, xtrue.get(2, 0)[0], ConfigFile.SWITCH_HEADING_KNOWN);
+		    x = retValue3[0];
+		    P = retValue3[1];
 		    
 		    //EKF update step
 		    dtsum = dtsum + dt;
@@ -150,7 +158,7 @@ public class SlamSim implements Runnable {
 		    {
 		    	dtsum = 0;
 		    	
-		    	Mat[] retValue4 = EfkSlamSim.get_observations(xtrue, lm, ftag, ConfigFile.MAX_RANGE);
+		    	Mat[] retValue4 = efkSlam.get_observations(xtrue, lm, ftag, ConfigFile.MAX_RANGE);
 		    	Mat z = retValue4[0];
 		    	Mat ftag_visible = retValue4[1];
 		    	
@@ -158,21 +166,22 @@ public class SlamSim implements Runnable {
 		    	Mat idf = null;
 		    	Mat zn = null;
 		    	
-		    	z = EfkSlamSim.add_observation_noise(z, ConfigFile.R(), ConfigFile.SWITCH_SENSOR_NOISE);
+		    	z = efkSlam.add_observation_noise(z, ConfigFile.R(), ConfigFile.SWITCH_SENSOR_NOISE);
 		    	
 		    	//compute data association (association not known, estimated using gates)
-	    		Mat[] retValue5 = EfkSlamSim.data_associate(x, P, z, RE, ConfigFile.GATE_REJECT, ConfigFile.GATE_AUGMENT); 
+	    		Mat[] retValue5 = efkSlam.data_associate(x, P, z, RE, ConfigFile.GATE_REJECT, ConfigFile.GATE_AUGMENT); 
 	    		zf = retValue5[0];
 	    		idf = retValue5[1];
 	    		zn = retValue5[2];
 		    	
 		    	//update step
-	    		Mat[] retValue6 = EfkSlamSim.update(x, P, zf, RE, idf); 
+	    		Mat[] retValue6 = efkSlam.update(x, P, zf, RE, idf); 
 	    		x = retValue6[0];
 	    		P = retValue6[1];
 		    	
+	    		
 				//augment step
-		    	Mat[] retValue7 = EfkSlamSim.augment(x, P, zn, RE); 
+		    	Mat[] retValue7 = efkSlam.augment(x, P, zn, RE); 
 		    	x = retValue7[0];
 	    		P = retValue7[1];
 	    		
@@ -182,7 +191,6 @@ public class SlamSim implements Runnable {
 			    double trueY = xtrue.get(1, 0)[0];
 			   
 			    trueTrack.addWpt(new Vector2D(trueX, trueY));
-			    //GameCanvas.drawDot((int)trueX, (int)trueY, Color.BLUE);
 			    path.addWpt(new Vector2D(position));
 		    }
 		}
@@ -195,6 +203,15 @@ public class SlamSim implements Runnable {
 	public Waypoints getTrueTrack()
 	{
 		return this.trueTrack;
+	}
+	void getErrorEllipse(double chisquare, Point mean, Mat covmat) {
+		Mat eigenvalues, eigenvectors;
+		int cols = covmat.cols();
+		int rows = covmat.rows();
+		eigenvalues = Mat.zeros(3, 1, CvType.CV_64F);
+		eigenvectors = Mat.zeros(1, cols, CvType.CV_64F); // rows - horizontal; columns - vertical
+		boolean eigenRes = Core.eigen(covmat, true, eigenvalues, eigenvectors);
+		
 	}
  	public void setLandmarks(Landmarks landmarks)
 	{

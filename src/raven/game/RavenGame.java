@@ -3,6 +3,7 @@ package raven.game;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.event.KeyEvent;
+import java.awt.geom.AffineTransform;
 import java.awt.Dimension;
 import java.io.File;
 import java.io.IOException;
@@ -18,6 +19,7 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import raven.efkslam.SlamSim;
+import raven.efkslam.Pose;
 import raven.game.armory.Bolt;
 import raven.game.armory.Pellet;
 import raven.game.armory.RavenProjectile;
@@ -40,8 +42,11 @@ import raven.ui.RavenUI;
 import raven.utils.Log;
 import raven.utils.MapSerializer;
 import raven.utils.Regulator;
+import raven.utils.BoundedBuffer;
 import raven.Main;
 import raven.slam.Landmarks;
+import java.awt.geom.Ellipse2D;
+import java.awt.Shape;
 
 import raven.efkslam.ConfigFile;
 
@@ -89,11 +94,14 @@ public class RavenGame {
 	
 	//TODO: add items for slam
 	//Slam slam = new Slam();
-	SlamSim slamsim = new SlamSim();
+	BoundedBuffer<Pose> bufferSlamSim = new BoundedBuffer<Pose>(5);
+	SlamSim slamsim = new SlamSim("roverAlpha", bufferSlamSim);
 	Landmarks landmarks = new Landmarks();
 	
-	SlamSim slamsimSecond = new SlamSim();
+	SlamSim slamsimSecond = new SlamSim("roverBeta", bufferSlamSim);
 	Landmarks landmarksSecond = new Landmarks();
+	
+	
 
 	public Waypoints getTrackSlam()
 	{
@@ -199,6 +207,11 @@ public class RavenGame {
 		trueTrackSecond.setColor(Color.RED);
 		trueTrackSecond.setDrawPoint(false);
 		trueTrackSecond.render();
+		
+		//GameCanvas.ellipse(400, 200, 100, 50, Math.PI*0.25);
+		//GameCanvas.circle(400, 200, 100);
+		
+		
 		for (IRavenBot bot : bots) {
 			bot.render();
 			
@@ -762,12 +775,19 @@ public class RavenGame {
 		bot.getSteering().wallAvoidanceOn();
 		bot.getSteering().separationOn();
 		bots.add(bot);
+		
+		Vector2D pos2 = new Vector2D(pos.x, pos.y + ConfigFile.SHIFT_Y);
+		// second bot
+		IRavenBot bot2 = new RoverBot(this, pos2, Goal.GoalType.goal_roverthink);
+		// switch the default steering behaviors on
+		bot2.getSteering().wallAvoidanceOn();
+		bot2.getSteering().separationOn();
+		bots.add(bot2);
 		//slam.initKalman(pos.x, pos.y);
 		slamsim.setWaypoints(wpts);
 		slamsim.setLandmarks(landmarks);
 		slamsim.initialize(pos.x, pos.y);
 		
-		Vector2D pos2 = new Vector2D(pos.x, pos.y + ConfigFile.SHIFT_Y);
 		Waypoints.Wpt wp;
 		for(int i = 0; i<wpts.size(); i++) {
 			wp = wpts.get(i);
@@ -788,7 +808,8 @@ public class RavenGame {
 					
 		// register the bot with the entity manager
 		EntityManager.registerEntity(bot);
-
+		EntityManager.registerEntity(bot2);
+		
 		return available;
 	}
 	

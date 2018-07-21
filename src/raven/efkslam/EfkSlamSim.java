@@ -12,12 +12,12 @@ public class EfkSlamSim
 	public static void main(String[] args) 
 	{
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-		test();
+		(new EfkSlamSim()).test();
 	}
 	/**
 	 * @param args
 	 */
-	public static void test()
+	public void test()
 	{
 		//INPUTS:
 		//set of landmarks
@@ -66,7 +66,7 @@ public class EfkSlamSim
 		//initial veh = [0 -WB -WB]
 		//              [0 -2   2 ]
 		
-		System.out.println("veh");
+		System.out.println("veh " + veh.rows() + "x" + veh.cols());
 		System.out.println(veh.dump());
 		System.out.println();
 		
@@ -76,7 +76,7 @@ public class EfkSlamSim
 		//                [0]
 		//                [0]
 		
-		System.out.println("xtrue");
+		System.out.println("xtrue " + xtrue.rows() + "x" + xtrue.cols());
 		System.out.println(xtrue.dump());
 		System.out.println();
 		
@@ -85,7 +85,7 @@ public class EfkSlamSim
 		//            [0] yr
 		//            [0] steer angle
 		
-		System.out.println("x");
+		System.out.println("x " + x.rows() + "x" + x.cols());
 		System.out.println(x.dump());
 		System.out.println();
 		
@@ -94,7 +94,7 @@ public class EfkSlamSim
 		//            [0 0 0]
 		//            [0 0 0]
 		
-		System.out.println("P");
+		System.out.println("P " + P.rows() + "x" + P.cols());
 		System.out.println(P.dump());
 		System.out.println();
 		
@@ -134,6 +134,12 @@ public class EfkSlamSim
 		while(iwp != -1)
 		{
 			iteration++;
+			if(iteration > 1000) {
+				
+				// chisquare set for 95% confidence interval
+				getErrorEllipse(2.4477, new Point(x.get(0, 0)[0], x.get(1, 0)[0]), P.submat(0,2,0,2), xtrue, lm, x);
+				System.exit(0);
+			}
 			//compute true data
 			Object[] retValue = compute_steering(xtrue, wp, iwp, ConfigFile.AT_WAYPOINT, G, ConfigFile.RATEG, ConfigFile.MAXG, dt);
 			G = (double)retValue[0];
@@ -197,21 +203,21 @@ public class EfkSlamSim
 		    System.out.println("iteration: " + iteration);
 		    System.out.println("============");
 		    
-		    System.out.println("xtrue");
+		    System.out.println("xtrue " + xtrue.rows() + "x" + xtrue.cols());
 			System.out.println(xtrue.dump());
 			System.out.println();
 			
-		    System.out.println("x");
+		    System.out.println("x " + x.rows() + "x" + x.cols());
 			System.out.println(x.dump());
 			System.out.println();
 			
-			System.out.println("P");
+			System.out.println("P " + P.rows() + "x" + P.cols());
 			System.out.println(P.dump());
 			System.out.println();
 		}
 	}
 	
-	public static Mat[] augment(Mat x, Mat P, Mat z, Mat R)
+	public Mat[] augment(Mat x, Mat P, Mat z, Mat R)
 	{
 		Mat[] retValue = new Mat[2];//x, P
 		retValue[0] = x;
@@ -226,7 +232,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static Mat[] add_one_z(Mat x, Mat P, Mat z, Mat R)
+	public Mat[] add_one_z(Mat x, Mat P, Mat z, Mat R)
 	{
 		Mat[] retValue = new Mat[2];//x, P
 		
@@ -243,7 +249,7 @@ public class EfkSlamSim
 		x1.put(0, 0, x.get(0, 0)[0] + r * c);
 		x1.put(1, 0, x.get(1, 0)[0] + r * s);
 		
-		x.push_back(x1);
+		x.push_back(x1); // adds a row to matrix x
 		
 		//jacobians
 		Mat Gv = Mat.zeros(2, 3, CvType.CV_64F);
@@ -300,7 +306,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static Mat[] update(Mat x, Mat P, Mat z, Mat R, Mat idf)
+	public Mat[] update(Mat x, Mat P, Mat z, Mat R, Mat idf)
 	{
 		Mat[] retValue = new Mat[2];//x, P
 		retValue = single_update(x, P, z, R, idf);
@@ -308,7 +314,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static Mat[] single_update(Mat x, Mat P, Mat z, Mat R, Mat idf)
+	public Mat[] single_update(Mat x, Mat P, Mat z, Mat R, Mat idf)
 	{
 		Mat[] retValue = new Mat[2];
 		
@@ -334,7 +340,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static Mat[] KF_cholesky_update(Mat x, Mat P, Mat v, Mat R, Mat H)
+	public Mat[] KF_cholesky_update(Mat x, Mat P, Mat v, Mat R, Mat H)
 	{
 		Mat[] retValue = new Mat[2];//x, P
 		Mat PHt = Mat.zeros(P.rows(), H.rows(), CvType.CV_64F);
@@ -383,7 +389,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static Mat[] observe_model(Mat x, int idf)
+	public Mat[] observe_model(Mat x, int idf)
 	{
 		Mat[] retValue = new Mat[2];//z, H
 		int Nxv = 3;
@@ -427,7 +433,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static int length(Mat m)
+	public int length(Mat m)
 	{
 		int ret = m.rows();
 		
@@ -438,7 +444,7 @@ public class EfkSlamSim
 	}
 	
 	//TODO: not done yet
-	public static Mat[] data_associate(Mat x, Mat P, Mat z, Mat R, double gate1, double gate2)
+	public Mat[] data_associate(Mat x, Mat P, Mat z, Mat R, double gate1, double gate2)
 	{
 		Mat[] retValue = new Mat[3];
 		
@@ -528,7 +534,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static Mat[] compute_association(Mat x, Mat P, Mat z, Mat R, int idf)
+	public Mat[] compute_association(Mat x, Mat P, Mat z, Mat R, int idf)
 	{
 		Mat[] retValue = new Mat[2];
 		//return normalised innovation squared (ie, Mahalanobis distance) and normalised distance
@@ -558,7 +564,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static Mat add_observation_noise(Mat z, Mat R, boolean addnoise)
+	public Mat add_observation_noise(Mat z, Mat R, boolean addnoise)
 	{
 		Mat retValue;
 		
@@ -584,7 +590,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public synchronized static Mat[] get_observations(Mat x, Mat lm, Mat idf, double rmax)
+	public Mat[] get_observations(Mat x, Mat lm, Mat idf, double rmax)
 	{
 		Mat[] retValue = new Mat[2];
 		Mat z = new Mat(2, 1, CvType.CV_64F);
@@ -606,7 +612,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static Mat compute_range_bearing(Mat x, Mat lm)
+	public Mat compute_range_bearing(Mat x, Mat lm)
 	{
 		//Compute exact observation
 		Mat dx = lm.submat(0, 1, 0, lm.cols());
@@ -635,7 +641,7 @@ public class EfkSlamSim
 		return z;
 	}
 	
-	public static Object[] get_visible_landmarks(Mat x, Mat lm, Mat idf, double rmax)
+	public Object[] get_visible_landmarks(Mat x, Mat lm, Mat idf, double rmax)
 	{
 		Mat[] retValue = new Mat[2];
 		
@@ -682,7 +688,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public synchronized static Mat[] observe_heading(Mat x, Mat P, double phi, boolean useheading)
+	public Mat[] observe_heading(Mat x, Mat P, double phi, boolean useheading)
 	{
 		Mat[] retValue = new Mat[2];
 		retValue[0] = x;
@@ -701,7 +707,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public synchronized static Mat[] predict(Mat x, Mat P, double v, double g, Mat Q, double WB, double dt)
+	public Mat[] predict(Mat x, Mat P, double v, double g, Mat Q, double WB, double dt)
 	{
 		Mat[] retValue = new Mat[2];
 		double s = Math.sin(g + x.get(2, 0)[0]);
@@ -761,7 +767,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public synchronized static double[] add_control_noise(double V, double G, Mat Q, boolean addnoise)
+	public double[] add_control_noise(double V, double G, Mat Q, boolean addnoise)
 	{
 		double[] retValue = new double[2];
 		retValue[0] = V;
@@ -777,7 +783,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public synchronized static Mat vehicle_model(Mat xv, double V, double G, double WB, double dt)
+	public Mat vehicle_model(Mat xv, double V, double G, double WB, double dt)
 	{
 		xv.put(0, 0, xv.get(0, 0)[0] + V * dt * Math.cos(G + xv.get(2, 0)[0]));
 		xv.put(1, 0, xv.get(1, 0)[0] + V * dt * Math.sin(G + xv.get(2, 0)[0]));
@@ -786,7 +792,7 @@ public class EfkSlamSim
 		return xv;
 	}
 	
-	public synchronized static Object[] compute_steering(Mat x, Mat wp, int iwp, double minD, double G, double rateG, double maxG, double dt)
+	public Object[] compute_steering(Mat x, Mat wp, int iwp, double minD, double G, double rateG, double maxG, double dt)
 	{
 		Object[] retValue = new Object[2];
 		retValue[0] = G;
@@ -826,7 +832,7 @@ public class EfkSlamSim
 		return retValue;
 	}
 	
-	public static double sign(double x)
+	public double sign(double x)
 	{
 		double sign = 0;
 		if(x < 0)
@@ -839,7 +845,7 @@ public class EfkSlamSim
 		return sign;
 	}
 	
-	public static double pi_to_pi(double angle)
+	public double pi_to_pi(double angle)
 	{
 		double[] angles = {angle};
 		angles = pi_to_pi(angles);
@@ -847,7 +853,7 @@ public class EfkSlamSim
 		return angles[0];
 	}
 	
-	public static double[] pi_to_pi(double[] angle)
+	public double[] pi_to_pi(double[] angle)
 	{
 		for(int i = 0; i < angle.length; i++)
 			angle[i] = angle[i]%(2*Math.PI);
@@ -865,5 +871,61 @@ public class EfkSlamSim
 		}
 		
 		return angle;
+	}
+	void getErrorEllipse(double chisquare, Point mean, Mat covmat, Mat xtrue, Mat lm, Mat x) {
+		Mat eigenvalues, eigenvectors;
+		int cols = covmat.cols();
+		int rows = covmat.rows();
+		//eigenvalues = Mat.zeros(rows, 1, CvType.CV_64F);
+		//eigenvectors = Mat.zeros(rows, cols, CvType.CV_64F); // rows - horizontal; columns - vertical
+		eigenvalues = new Mat(rows, 1, CvType.CV_64F);
+		eigenvectors = new Mat(rows, cols, CvType.CV_64F);
+		System.out.println("Mean x = " + mean.x + " y = " + mean.y);
+		System.out.println("xtrue " + xtrue.rows() + "x" + xtrue.cols());
+		System.out.println(xtrue.dump());
+		System.out.println();
+		
+	    System.out.println("x " + x.rows() + "x" + x.cols());
+		System.out.println(x.dump());
+		System.out.println();
+		
+		System.out.println("landmarks " + lm.rows() + "x" + lm.cols());
+		System.out.println(lm.dump());
+		System.out.println();
+		
+		System.out.println("Covmat " + covmat.rows() + "x" + covmat.cols());
+		System.out.println(covmat.dump());
+		System.out.println();
+		boolean eigenRes = Core.eigen(covmat, true, eigenvalues, eigenvectors);
+		
+		System.out.println(" Core.eigen finished, res = " + eigenRes);
+		System.out.println("eigenvalues " + eigenvalues.rows() + "x" + eigenvalues.cols());
+		System.out.println(eigenvalues.dump());
+		System.out.println();
+		
+		System.out.println("eigenvectors " + eigenvectors.rows() + "x" + eigenvectors.cols());
+		System.out.println(eigenvectors.dump());
+		System.out.println();
+		
+		double x01 = eigenvectors.get(0, 1)[0];
+		double x00 = eigenvectors.get(0, 0)[0];
+		float x01f = (float)x01;
+		float x00f = (float)x00;
+		float angleDeg = Core.fastAtan2(x01f, x00f); // fastAtan2(y, x); result in degrees 0..360
+		//if(angleRad < 0) angleRad += 6.28318530718f;
+		//float angleDeg = 180*angleRad/3.14159265359f;
+		float angleRad = angleDeg/180;
+		angleRad *= 3.14159265359f;
+		System.out.println("eigenvector(0,1) = " + x01f + " ; eigenvector(0,0) = " + x00f);
+		System.out.println("Angle = " + angleDeg + " deg = " + angleRad + " radians");
+		double eigenVal00 = eigenvalues.get(0,0)[0];
+		double eigenVal01 = eigenvalues.get(1,0)[0];
+		double halfmajoraxissize = chisquare*Math.sqrt(eigenVal00);
+		double halfminoraxissize = chisquare*Math.sqrt(eigenVal01);
+		
+		System.out.println("eigenvalue(0,0) = " + eigenVal00);
+		System.out.println("Half major axis = " + halfmajoraxissize);
+		System.out.println("eigenvalue(0,1) = " + eigenVal01);
+		System.out.println("Half minor axis = " + halfminoraxissize);
 	}
 }

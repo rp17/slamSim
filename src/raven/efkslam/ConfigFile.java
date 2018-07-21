@@ -4,7 +4,7 @@ import org.opencv.core.Mat;
 
 public class ConfigFile 
 {
-	public final static int SHIFT_Y = 100;
+	public final static int SHIFT_Y = 300;
 	//control parameters
 	public static double V = 3; //m/s
 	public static double MAXG= 30*Math.PI/180;// radians, maximum steering angle (-MAXG < g < MAXG)
@@ -61,6 +61,6 @@ public class ConfigFile
 	public static boolean SWITCH_CONTROL_NOISE= true; // if 0, velocity and gamma are perfect
 	public static boolean SWITCH_SENSOR_NOISE = true; // if 0, measurements are perfect
 	public static boolean SWITCH_INFLATE_NOISE= false; // if 1, the estimated Q and R are inflated (ie, add stabilising noise)
-	public static boolean SWITCH_HEADING_KNOWN= false; // if 1, the vehicle heading is observed directly at each iteration
+	public static boolean SWITCH_HEADING_KNOWN= true; // if 1, the vehicle heading is observed directly at each iteration
 	public static boolean SWITCH_SEED_RANDOM= false; // if not 0, seed the randn() with its value at beginning of simulation (for repeatability)
 }

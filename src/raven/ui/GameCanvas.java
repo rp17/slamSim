@@ -3,10 +3,13 @@ package raven.ui;
 import java.awt.BasicStroke;
 import java.awt.Canvas;
 import java.awt.Color;
-import java.awt.Graphics;
+//import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.Shape;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
+import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -288,4 +291,41 @@ public class GameCanvas extends Canvas {
 		g.setColor(getInstance().pen);
 		getInstance().g2d.draw(new Ellipse2D.Double(x - radius, y - radius, 2 * radius, 2 * radius));
 	}
+	public static void ellipse(double x, double y, double axisX, double axisY) {
+		Graphics2D g = getInstance().g2d;
+		g.setPaint(getInstance().brush);
+		Ellipse2D.Double ellipse = new Ellipse2D.Double(x - axisX, y - axisY, 2 * axisX, 2 * axisY);
+		g.draw(ellipse);
+		g.setStroke(new BasicStroke(getInstance().stroke));
+		g.setColor(getInstance().pen);
+		g.draw(ellipse);
+	}
+	/**
+	 * 
+	 * @param x left top x coordinate
+	 * @param y left top y coordinate
+	 * @param axisX X axis radius
+	 * @param axisY Y axis radius
+	 * @param rotation rotation in radians (Math.PI*coefficient)
+	 */
+	public static void ellipse(double x, double y, double axisX, double axisY, double rotation) {
+		Graphics2D g = getInstance().g2d;
+		g.setPaint(getInstance().brush);
+		double centX = x - axisX;
+		double centY = y - axisY;
+		Ellipse2D.Double ellipse = new Ellipse2D.Double(centX, centY, 2*axisX, 2*axisY);
+		AffineTransform at = AffineTransform.getRotateInstance(rotation, x, y);
+		Shape atEllipse = at.createTransformedShape(ellipse);
+		Rectangle2D.Double rect = new Rectangle2D.Double(centX, centY, 2*axisX, 2*axisY);
+		Shape atRect = at.createTransformedShape(rect);
+		g.draw(atRect);
+		g.draw(atEllipse);
+		g.setStroke(new BasicStroke(getInstance().stroke));
+		g.setColor(getInstance().pen);
+		
+		filledCircle((int)x, (int)y, 3);
+		g.draw(atRect);
+		g.draw(atEllipse);
+	}
+	
 }
