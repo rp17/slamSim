@@ -9,12 +9,12 @@ import org.opencv.core.Mat;
 import org.opencv.core.Scalar;
 import org.opencv.core.Point;
 
+import raven.efkslam.Ellipses;
+import raven.efkslam.Landmarks.Landmark;
+import raven.efkslam.ConfigFile;
 import raven.game.Waypoints;
 import raven.game.Waypoints.Wpt;
 import raven.math.Vector2D;
-import raven.slam.Landmarks;
-import raven.slam.Landmarks.Landmark;
-
 import raven.ui.GameCanvas;
 import raven.utils.BoundedBuffer;
 
@@ -39,16 +39,15 @@ public class SlamSim implements Runnable {
 	int iteration;
 	
 	raven.utils.BoundedBuffer<Pose> buffer;
-	Waypoints path;
+	Waypoints path = new Waypoints();
+	Waypoints trueTrack = new Waypoints();
+	Ellipses poseErrorEllipses = new Ellipses();
 	
-	Waypoints trueTrack;
-	
-	public SlamSim(String name, BoundedBuffer<Pose> buffer)
+	public SlamSim(String name)
 	{
 		this.name = name;
-		this.buffer = buffer;
-		path = new Waypoints();
-		trueTrack = new Waypoints();
+		//path = new Waypoints();
+		//trueTrack = new Waypoints();
 	}
 	
 	public void initialize(double robot_pos_x, double robot_pos_y)
@@ -119,10 +118,16 @@ public class SlamSim implements Runnable {
 	public void run()
 	{
 		Vector2D position = new Vector2D();
-		
+		int drawPoseEllipseFreqCount = 0;
 		while(iwp != -1) // loop iterates over waypoints
 		{
 			iteration++;
+			drawPoseEllipseFreqCount++;
+			if(drawPoseEllipseFreqCount > ConfigFile.PoseErrorEllipseFreq) {
+				drawPoseEllipseFreqCount = 0;
+				Ellipse ellipse = efkSlam.getErrorEllipse(2.4477, new Point(x.get(0, 0)[0], x.get(1, 0)[0]), P.submat(0,2,0,2), xtrue, lm, x, ConfigFile.LogLevel.Off);
+				poseErrorEllipses.addEllipse(ellipse);
+			}
 			//compute true data
 			Object[] retValue = efkSlam.compute_steering(xtrue, wp, iwp, ConfigFile.AT_WAYPOINT, G, ConfigFile.RATEG, ConfigFile.MAXG, dt);
 			G = (double)retValue[0]; // steer angle
@@ -204,15 +209,13 @@ public class SlamSim implements Runnable {
 	{
 		return this.trueTrack;
 	}
-	void getErrorEllipse(double chisquare, Point mean, Mat covmat) {
-		Mat eigenvalues, eigenvectors;
-		int cols = covmat.cols();
-		int rows = covmat.rows();
-		eigenvalues = Mat.zeros(3, 1, CvType.CV_64F);
-		eigenvectors = Mat.zeros(1, cols, CvType.CV_64F); // rows - horizontal; columns - vertical
-		boolean eigenRes = Core.eigen(covmat, true, eigenvalues, eigenvectors);
-		
+	public void renderPoseErrorEllipses(){
+		poseErrorEllipses.render();
 	}
+	Ellipse getErrorEllipse(double chisquare, Point mean, Mat covmat, Mat xtrue, Mat lm, Mat x, ConfigFile.LogLevel logLvl) {
+		return efkSlam.getErrorEllipse(chisquare, mean, covmat, xtrue, lm, x, logLvl);
+	}
+	
  	public void setLandmarks(Landmarks landmarks)
 	{
 		lm = new Mat(2, landmarks.size(), CvType.CV_64F);

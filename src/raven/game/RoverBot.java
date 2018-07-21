@@ -15,6 +15,8 @@ import org.opencv.core.Scalar;
 
 import raven.efkslam.ConfigFile;
 import raven.efkslam.EfkSlamSim;
+import raven.efkslam.Landmarks;
+import raven.efkslam.Landmarks.Landmark;
 import raven.game.Waypoints;
 import raven.game.Waypoints.Wpt;
 import raven.game.interfaces.IRavenBot;
@@ -26,9 +28,7 @@ import raven.goals.Goal_PIDFollowPath;
 import raven.goals.GoalRoverThink;
 import raven.math.Vector2D;
 import raven.math.RandUtils;
-import raven.slam.Landmarks;
 import raven.slam.Slam;
-import raven.slam.Landmarks.Landmark;
 import raven.ui.GameCanvas;
 
 import raven.utils.PIDcontroller;

@@ -1,4 +1,4 @@
-package raven.slam;
+package raven.efkslam;
 
 import java.awt.Point;
 import java.util.ArrayList;

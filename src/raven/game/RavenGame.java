@@ -19,6 +19,7 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import raven.efkslam.SlamSim;
+import raven.efkslam.Landmarks.Landmark;
 import raven.efkslam.Pose;
 import raven.game.armory.Bolt;
 import raven.game.armory.Pellet;
@@ -35,7 +36,6 @@ import raven.goals.Goal;
 import raven.math.Vector2D;
 import raven.math.WallIntersectionTest;
 import raven.script.RavenScript;
-import raven.slam.Landmarks.Landmark;
 import raven.slam.Slam;
 import raven.ui.GameCanvas;
 import raven.ui.RavenUI;
@@ -44,11 +44,12 @@ import raven.utils.MapSerializer;
 import raven.utils.Regulator;
 import raven.utils.BoundedBuffer;
 import raven.Main;
-import raven.slam.Landmarks;
+
 import java.awt.geom.Ellipse2D;
 import java.awt.Shape;
 
 import raven.efkslam.ConfigFile;
+import raven.efkslam.Landmarks;
 
 public class RavenGame {
 	/** the current game map */
@@ -94,11 +95,11 @@ public class RavenGame {
 	
 	//TODO: add items for slam
 	//Slam slam = new Slam();
-	BoundedBuffer<Pose> bufferSlamSim = new BoundedBuffer<Pose>(5);
-	SlamSim slamsim = new SlamSim("roverAlpha", bufferSlamSim);
+	//BoundedBuffer<Pose> bufferSlamSim = new BoundedBuffer<Pose>(5);
+	SlamSim slamsim = new SlamSim("Alpha");
 	Landmarks landmarks = new Landmarks();
 	
-	SlamSim slamsimSecond = new SlamSim("roverBeta", bufferSlamSim);
+	SlamSim slamsimSecond = new SlamSim("Beta");
 	Landmarks landmarksSecond = new Landmarks();
 	
 	
@@ -184,14 +185,10 @@ public class RavenGame {
 		Log.trace("game", "Rendering game");
 		// render the map
 		map.render();
+		graveMarkers.render();
 		
 		wpts.render();
 		landmarks.render();
-		wptsSecond.render();
-		landmarksSecond.render();
-		
-		graveMarkers.render();
-		
 		track_slam.setColor(Color.GREEN);
 		track_slam.setDrawPoint(false);
 		track_slam.render();
@@ -199,14 +196,20 @@ public class RavenGame {
 		trueTrack.setColor(Color.RED);
 		trueTrack.setDrawPoint(false);
 		trueTrack.render();
+		slamsim.renderPoseErrorEllipses();
 		
-		track_slamSecond.setColor(Color.GREEN);
-		track_slamSecond.setDrawPoint(false);
-		track_slamSecond.render();
+		if(ConfigFile.RunTwoRovers) {
+			wptsSecond.render();
+			landmarksSecond.render();
+			track_slamSecond.setColor(Color.GREEN);
+			track_slamSecond.setDrawPoint(false);
+			track_slamSecond.render();
 		
-		trueTrackSecond.setColor(Color.RED);
-		trueTrackSecond.setDrawPoint(false);
-		trueTrackSecond.render();
+			trueTrackSecond.setColor(Color.RED);
+			trueTrackSecond.setDrawPoint(false);
+			trueTrackSecond.render();
+			slamsimSecond.renderPoseErrorEllipses();
+		}
 		
 		//GameCanvas.ellipse(400, 200, 100, 50, Math.PI*0.25);
 		//GameCanvas.circle(400, 200, 100);
@@ -215,6 +218,7 @@ public class RavenGame {
 		for (IRavenBot bot : bots) {
 			bot.render();
 			
+			/*
 			if(bot instanceof RoverBot)
 			{
 				Waypoints track = ((RoverBot)bot).getTrack();
@@ -225,6 +229,7 @@ public class RavenGame {
 				//this.track_slam = track_slam;
 				//this.track_slam.render();
 			}
+			*/
 		}
 		
 		// render all the bots unless the user has selected the option to only
@@ -249,6 +254,7 @@ public class RavenGame {
 		}
 		*/
 		// render any projectiles
+		/*
 		Log.trace("game", "Rendering projectiles");
 		for (RavenProjectile projectile : projectiles) {
 			projectile.render();
@@ -295,7 +301,9 @@ public class RavenGame {
 				Vector2D p = new Vector2D(selectedBot.pos().x - 50, selectedBot.pos().y);
 				selectedBot.getBrain().renderAtPos(p);
 			}
+			
 		}
+		*/
 	}
 
 	/**
@@ -775,41 +783,40 @@ public class RavenGame {
 		bot.getSteering().wallAvoidanceOn();
 		bot.getSteering().separationOn();
 		bots.add(bot);
-		
-		Vector2D pos2 = new Vector2D(pos.x, pos.y + ConfigFile.SHIFT_Y);
-		// second bot
-		IRavenBot bot2 = new RoverBot(this, pos2, Goal.GoalType.goal_roverthink);
-		// switch the default steering behaviors on
-		bot2.getSteering().wallAvoidanceOn();
-		bot2.getSteering().separationOn();
-		bots.add(bot2);
+		EntityManager.registerEntity(bot);
 		//slam.initKalman(pos.x, pos.y);
 		slamsim.setWaypoints(wpts);
 		slamsim.setLandmarks(landmarks);
 		slamsim.initialize(pos.x, pos.y);
-		
-		Waypoints.Wpt wp;
-		for(int i = 0; i<wpts.size(); i++) {
-			wp = wpts.get(i);
-			Vector2D posWpt = new Vector2D(wp.x, wp.y + ConfigFile.SHIFT_Y);
-			wptsSecond.addWpt(posWpt);
-		}
-		Landmarks.Landmark landmrk;
-		for(int i=0; i<landmarks.size(); i++) {
-			landmrk = landmarks.get(i);
-			landmarksSecond.addLandmark(new Vector2D(landmrk.x, landmrk.y + ConfigFile.SHIFT_Y));
-		}
-		
-		slamsimSecond.setWaypoints(wptsSecond);
-		slamsimSecond.setLandmarks(landmarksSecond);
-		slamsimSecond.initialize(pos2.x, pos2.y);
-		
 		Log.info("game", "Bot " + bot.ID() + " added");
-					
-		// register the bot with the entity manager
-		EntityManager.registerEntity(bot);
-		EntityManager.registerEntity(bot2);
 		
+		Vector2D pos2 = new Vector2D(pos.x, pos.y + ConfigFile.SHIFT_Y);
+		// second bot
+		if(ConfigFile.RunTwoRovers) {
+			IRavenBot bot2 = new RoverBot(this, pos2, Goal.GoalType.goal_roverthink);
+			// switch the default steering behaviors on
+			bot2.getSteering().wallAvoidanceOn();
+			bot2.getSteering().separationOn();
+			bots.add(bot2);
+		
+			Waypoints.Wpt wp;
+			for(int i = 0; i<wpts.size(); i++) {
+				wp = wpts.get(i);
+				Vector2D posWpt = new Vector2D(wp.x, wp.y + ConfigFile.SHIFT_Y);
+				wptsSecond.addWpt(posWpt);
+			}
+			Landmarks.Landmark landmrk;
+			for(int i=0; i<landmarks.size(); i++) {
+				landmrk = landmarks.get(i);
+				landmarksSecond.addLandmark(new Vector2D(landmrk.x, landmrk.y + ConfigFile.SHIFT_Y));
+			}
+			slamsimSecond.setWaypoints(wptsSecond);
+			slamsimSecond.setLandmarks(landmarksSecond);
+			slamsimSecond.initialize(pos2.x, pos2.y);		
+			// register the bot with the entity manager
+			EntityManager.registerEntity(bot2);
+			Log.info("game", "Bot " + bot2.ID() + " added");
+		}
 		return available;
 	}
 	
@@ -828,6 +835,7 @@ public class RavenGame {
 	}
 	
 	public void plotEFKSlamPath(){
+		if(ConfigFile.RunTwoRovers) {
 		Thread t_slamBotFirst = new Thread(slamsim);
 		Thread t_slamBotSecond = new Thread(slamsimSecond);
 		//slamsim.run();
@@ -845,6 +853,12 @@ public class RavenGame {
 		
 		this.track_slamSecond = slamsimSecond.getSlamPath();
 		this.trueTrackSecond = slamsimSecond.getTrueTrack();
+		}
+		else {
+			slamsim.run();
+			this.track_slam = slamsim.getSlamPath();
+			this.trueTrack = slamsim.getTrueTrack();
+		}
 	}
 	
 	public Landmarks getLandmarks() {return landmarks;}

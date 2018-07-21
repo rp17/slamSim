@@ -300,32 +300,46 @@ public class GameCanvas extends Canvas {
 		g.setColor(getInstance().pen);
 		g.draw(ellipse);
 	}
+	
+	
 	/**
 	 * 
 	 * @param x left top x coordinate
 	 * @param y left top y coordinate
 	 * @param axisX X axis radius
 	 * @param axisY Y axis radius
-	 * @param rotation rotation in radians (Math.PI*coefficient)
+	 * @param angleRad rotation in radians (seems like 0 to 2*PI for getRotateInstance ?)
 	 */
-	public static void ellipse(double x, double y, double axisX, double axisY, double rotation) {
+	public static void ellipseRad(double x, double y, double axisX, double axisY, double angleRad) {
 		Graphics2D g = getInstance().g2d;
 		g.setPaint(getInstance().brush);
 		double centX = x - axisX;
 		double centY = y - axisY;
 		Ellipse2D.Double ellipse = new Ellipse2D.Double(centX, centY, 2*axisX, 2*axisY);
-		AffineTransform at = AffineTransform.getRotateInstance(rotation, x, y);
+		AffineTransform at = AffineTransform.getRotateInstance(angleRad, x, y);
 		Shape atEllipse = at.createTransformedShape(ellipse);
-		Rectangle2D.Double rect = new Rectangle2D.Double(centX, centY, 2*axisX, 2*axisY);
-		Shape atRect = at.createTransformedShape(rect);
-		g.draw(atRect);
+		//Rectangle2D.Double rect = new Rectangle2D.Double(centX, centY, 2*axisX, 2*axisY);
+		//Shape atRect = at.createTransformedShape(rect);
+		//g.draw(atRect);
 		g.draw(atEllipse);
 		g.setStroke(new BasicStroke(getInstance().stroke));
 		g.setColor(getInstance().pen);
 		
-		filledCircle((int)x, (int)y, 3);
-		g.draw(atRect);
+		//filledCircle((int)x, (int)y, 3);
+		//g.draw(atRect);
 		g.draw(atEllipse);
 	}
-	
+	/**
+	 * 
+	 * @param x left top x coordinate
+	 * @param y left top y coordinate
+	 * @param axisX X axis radius
+	 * @param axisY Y axis radius
+	 * @param angleDeg rotation in degrees (0 to 360)
+	 */
+	public static void ellipseDeg(double x, double y, double axisX, double axisY, double angleDeg) {
+		double angleRad = angleDeg/180;
+		angleRad *= 3.14159265359f;
+		ellipseRad(x, y, axisX, axisY, angleRad);
+	}
 }

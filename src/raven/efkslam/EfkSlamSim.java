@@ -3,7 +3,8 @@ import java.util.ArrayList;
 import java.util.Random;
 
 import org.opencv.core.*;
-
+import raven.efkslam.ConfigFile;
+import raven.efkslam.Ellipses;
 public class EfkSlamSim 
 {
 	/**
@@ -137,7 +138,7 @@ public class EfkSlamSim
 			if(iteration > 1000) {
 				
 				// chisquare set for 95% confidence interval
-				getErrorEllipse(2.4477, new Point(x.get(0, 0)[0], x.get(1, 0)[0]), P.submat(0,2,0,2), xtrue, lm, x);
+				getErrorEllipse(2.4477, new Point(x.get(0, 0)[0], x.get(1, 0)[0]), P.submat(0,2,0,2), xtrue, lm, x, ConfigFile.LogLevel.Full);
 				System.exit(0);
 			}
 			//compute true data
@@ -872,7 +873,7 @@ public class EfkSlamSim
 		
 		return angle;
 	}
-	void getErrorEllipse(double chisquare, Point mean, Mat covmat, Mat xtrue, Mat lm, Mat x) {
+	Ellipse getErrorEllipse(double chisquare, Point mean, Mat covmat, Mat xtrue, Mat lm, Mat x, ConfigFile.LogLevel logLvl) {
 		Mat eigenvalues, eigenvectors;
 		int cols = covmat.cols();
 		int rows = covmat.rows();
@@ -880,6 +881,8 @@ public class EfkSlamSim
 		//eigenvectors = Mat.zeros(rows, cols, CvType.CV_64F); // rows - horizontal; columns - vertical
 		eigenvalues = new Mat(rows, 1, CvType.CV_64F);
 		eigenvectors = new Mat(rows, cols, CvType.CV_64F);
+		
+		if(logLvl == ConfigFile.LogLevel.Full) {
 		System.out.println("Mean x = " + mean.x + " y = " + mean.y);
 		System.out.println("xtrue " + xtrue.rows() + "x" + xtrue.cols());
 		System.out.println(xtrue.dump());
@@ -896,8 +899,10 @@ public class EfkSlamSim
 		System.out.println("Covmat " + covmat.rows() + "x" + covmat.cols());
 		System.out.println(covmat.dump());
 		System.out.println();
+		}
 		boolean eigenRes = Core.eigen(covmat, true, eigenvalues, eigenvectors);
 		
+		if(logLvl == ConfigFile.LogLevel.Full) {
 		System.out.println(" Core.eigen finished, res = " + eigenRes);
 		System.out.println("eigenvalues " + eigenvalues.rows() + "x" + eigenvalues.cols());
 		System.out.println(eigenvalues.dump());
@@ -906,6 +911,7 @@ public class EfkSlamSim
 		System.out.println("eigenvectors " + eigenvectors.rows() + "x" + eigenvectors.cols());
 		System.out.println(eigenvectors.dump());
 		System.out.println();
+		}
 		
 		double x01 = eigenvectors.get(0, 1)[0];
 		double x00 = eigenvectors.get(0, 0)[0];
@@ -916,16 +922,23 @@ public class EfkSlamSim
 		//float angleDeg = 180*angleRad/3.14159265359f;
 		float angleRad = angleDeg/180;
 		angleRad *= 3.14159265359f;
+		if(logLvl == ConfigFile.LogLevel.Full) {
 		System.out.println("eigenvector(0,1) = " + x01f + " ; eigenvector(0,0) = " + x00f);
 		System.out.println("Angle = " + angleDeg + " deg = " + angleRad + " radians");
+		}
 		double eigenVal00 = eigenvalues.get(0,0)[0];
 		double eigenVal01 = eigenvalues.get(1,0)[0];
+		
 		double halfmajoraxissize = chisquare*Math.sqrt(eigenVal00);
 		double halfminoraxissize = chisquare*Math.sqrt(eigenVal01);
 		
+		if(logLvl == ConfigFile.LogLevel.Full) {
 		System.out.println("eigenvalue(0,0) = " + eigenVal00);
 		System.out.println("Half major axis = " + halfmajoraxissize);
 		System.out.println("eigenvalue(0,1) = " + eigenVal01);
 		System.out.println("Half minor axis = " + halfminoraxissize);
+		}
+		Ellipse ellipse = new Ellipse(mean.x, mean.y, halfmajoraxissize, halfminoraxissize, angleDeg);
+		return ellipse;
 	}
 }

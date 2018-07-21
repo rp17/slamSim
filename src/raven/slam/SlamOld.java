@@ -8,6 +8,7 @@ import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 
+import raven.efkslam.Landmarks;
 import raven.math.Vector2D;
 
 public class SlamOld {
