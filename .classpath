@@ -12,10 +12,10 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/OpenCV">
 		<attributes>
-			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="C:/Users/rp31/Documents/home/Work/IndependentStudies/Gede/opencv/java/x64"/>
+			<attribute name="org.eclipse.jdt.launching.CLASSPATH_ATTR_LIBRARY_PATH_ENTRY" value="C:/Users/rp31/Documents/home/Work/IndependentStudies/Gede/EFKSlamProjects/Raven/opencv/x64"/>
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/OpenNI"/>
-	<classpathentry kind="lib" path="C:/Users/rp31/Documents/home/Work/IndependentStudies/Gede/opencv/java/opencv-248.jar"/>
+	<classpathentry kind="lib" path="C:/Users/rp31/Documents/home/Work/IndependentStudies/Gede/EFKSlamProjects/Raven/opencv/opencv-342.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

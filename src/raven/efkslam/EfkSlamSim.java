@@ -900,7 +900,7 @@ public class EfkSlamSim
 		System.out.println(covmat.dump());
 		System.out.println();
 		}
-		boolean eigenRes = Core.eigen(covmat, true, eigenvalues, eigenvectors);
+		boolean eigenRes = Core.eigen(covmat, eigenvalues, eigenvectors);
 		
 		if(logLvl == ConfigFile.LogLevel.Full) {
 		System.out.println(" Core.eigen finished, res = " + eigenRes);
