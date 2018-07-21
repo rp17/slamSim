@@ -129,7 +129,7 @@ public class SlamSim implements Runnable {
 				poseErrorEllipses.addEllipse(ellipse);
 			}
 			//compute true data
-			Object[] retValue = efkSlam.compute_steering(xtrue, wp, iwp, ConfigFile.AT_WAYPOINT, G, ConfigFile.RATEG, ConfigFile.MAXG, dt);
+			double[] retValue = efkSlam.compute_steering(xtrue, wp, iwp, ConfigFile.AT_WAYPOINT, G, ConfigFile.RATEG, ConfigFile.MAXG, dt);
 			G = (double)retValue[0]; // steer angle
 			iwp = (int)retValue[1]; // waypoint index
 			

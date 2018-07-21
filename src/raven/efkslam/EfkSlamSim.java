@@ -1,4 +1,5 @@
 package raven.efkslam;
+import java.util.List;
 import java.util.ArrayList;
 import java.util.Random;
 
@@ -142,7 +143,7 @@ public class EfkSlamSim
 				System.exit(0);
 			}
 			//compute true data
-			Object[] retValue = compute_steering(xtrue, wp, iwp, ConfigFile.AT_WAYPOINT, G, ConfigFile.RATEG, ConfigFile.MAXG, dt);
+			double[] retValue = compute_steering(xtrue, wp, iwp, ConfigFile.AT_WAYPOINT, G, ConfigFile.RATEG, ConfigFile.MAXG, dt);
 			G = (double)retValue[0];
 			iwp = (int)retValue[1];
 			
@@ -642,7 +643,7 @@ public class EfkSlamSim
 		return z;
 	}
 	
-	public Object[] get_visible_landmarks(Mat x, Mat lm, Mat idf, double rmax)
+	public Mat[] get_visible_landmarks(Mat x, Mat lm, Mat idf, double rmax)
 	{
 		Mat[] retValue = new Mat[2];
 		
@@ -661,7 +662,7 @@ public class EfkSlamSim
 		
 		double phi = x.get(2, 0)[0];
 		
-		ArrayList ii = new ArrayList();
+		List<Integer> ii = new ArrayList<Integer>(10);
 		
 		//incremental tests for bounding semi-circle
 		for(int i = 0; i < dx.cols(); i++)
@@ -793,9 +794,9 @@ public class EfkSlamSim
 		return xv;
 	}
 	
-	public Object[] compute_steering(Mat x, Mat wp, int iwp, double minD, double G, double rateG, double maxG, double dt)
+	public double[] compute_steering(Mat x, Mat wp, int iwp, double minD, double G, double rateG, double maxG, double dt)
 	{
-		Object[] retValue = new Object[2];
+		double[] retValue = new double[2];
 		retValue[0] = G;
 		retValue[1] = iwp;
 		
