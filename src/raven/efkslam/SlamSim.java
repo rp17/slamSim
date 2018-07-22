@@ -215,6 +215,8 @@ public class SlamSim implements Runnable {
 		    		thisRoverDebugString.append(name + " rover, calling get_observations\n");
 		    		thisRoverDebugString.append(name + " rover, Observed landmarks range and bearing\n");
 		    		thisRoverDebugString.append(z.dump() + "\n");
+		    		thisRoverDebugString.append("ftag:\n");
+		    		thisRoverDebugString.append(ftag_visible.dump() + "\n\n");
 		    	}
 		    	
 		    	Mat zf = null;

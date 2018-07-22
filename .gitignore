@@ -2,4 +2,6 @@ bin
 *.iws
 *~1
 *.log
+Alpha*
+Beta*
 .metadata
