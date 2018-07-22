@@ -8,6 +8,17 @@ import raven.efkslam.ConfigFile;
 import raven.efkslam.Ellipses;
 public class EfkSlamSim 
 {
+	
+	double retValue_compute_steering_G = 0;
+	int retValue_compute_steering_iwp = 0;
+	double[] retValue_add_control_noise = new double[2];
+	int iteration = 0;
+	final static int logFreq = 10; // log frequency in iterations
+	int get_visible_landmarksLogCounter = 0;
+	ConfigFile.LogLevel logLevel_get_visible_landmarks = ConfigFile.LogLevel.Full;
+	int get_observationsLogCounter = 0;
+	ConfigFile.LogLevel logLevel_get_observations = ConfigFile.LogLevel.Full;
+	ConfigFile.LogLevel logLvl_getErrorEllipse = ConfigFile.LogLevel.Off;
 	/**
 	 * @param args
 	 */
@@ -139,13 +150,13 @@ public class EfkSlamSim
 			if(iteration > 1000) {
 				
 				// chisquare set for 95% confidence interval
-				getErrorEllipse(2.4477, new Point(x.get(0, 0)[0], x.get(1, 0)[0]), P.submat(0,2,0,2), xtrue, lm, x, ConfigFile.LogLevel.Full);
+				getErrorEllipse(2.4477, new Point(x.get(0, 0)[0], x.get(1, 0)[0]), P.submat(0,2,0,2), xtrue, lm, x);
 				System.exit(0);
 			}
 			//compute true data
-			double[] retValue = compute_steering(xtrue, wp, iwp, ConfigFile.AT_WAYPOINT, G, ConfigFile.RATEG, ConfigFile.MAXG, dt);
-			G = (double)retValue[0];
-			iwp = (int)retValue[1];
+			compute_steering(xtrue, wp, iwp, ConfigFile.AT_WAYPOINT, G, ConfigFile.RATEG, ConfigFile.MAXG, dt);
+			G = retValue_compute_steering_G;
+			iwp = retValue_compute_steering_iwp;
 			
 			if (iwp == -1 && ConfigFile.NUMBER_LOOPS > 1) //perform loops: if final waypoint reached, go back to first
 			{
@@ -610,7 +621,15 @@ public class EfkSlamSim
 		
 		z = compute_range_bearing(x, lm_copy);
 		retValue[0] = z;
-		
+		get_observationsLogCounter++;
+		if(logLevel_get_observations == ConfigFile.LogLevel.Full && (get_observationsLogCounter == 0 || get_observationsLogCounter > logFreq )){
+			get_observationsLogCounter = 0;
+			System.out.println("EfkSlamSim.get_observations, iteration " + iteration);
+			System.out.println("Observed landmarks IDs:");
+			System.out.println(idf.dump());
+			System.out.println("Observed landmarks; row 0 - range; row 1 - bearing:");
+			System.out.println(z.dump());
+		}
 		return retValue;
 	}
 	
@@ -625,11 +644,11 @@ public class EfkSlamSim
 		
 		Mat z = Mat.zeros(2, lm.cols(), CvType.CV_64F);
 		
-		Mat temp1 = new Mat(dx.rows(), dx.cols(), CvType.CV_64F);
+		Mat temp1 = new Mat(dx.rows(), dx.cols(), CvType.CV_64F); // ranges
 		Core.add(dx.mul(dx), dy.mul(dy), temp1);
 		Core.sqrt(temp1, temp1);
 		
-		Mat temp2 = new Mat(dx.rows(), dx.cols(), CvType.CV_64F);
+		Mat temp2 = new Mat(dx.rows(), dx.cols(), CvType.CV_64F); // bearings
 		for(int i = 0; i < temp2.rows(); i++)
 		{
 			for(int j = 0; j < temp2.cols(); j++)
@@ -638,8 +657,8 @@ public class EfkSlamSim
 			}
 		}
 		
-		temp1.copyTo(z.submat(0, 1, 0, lm.cols()));
-		temp2.copyTo(z.submat(1, 2, 0, lm.cols()));
+		temp1.copyTo(z.submat(0, 1, 0, lm.cols())); // copy ranges
+		temp2.copyTo(z.submat(1, 2, 0, lm.cols())); // copy bearings
 		return z;
 	}
 	
@@ -683,6 +702,15 @@ public class EfkSlamSim
 			lm1.put(0, i, lm.get(0, (int)ii.get(i))[0]);
 			lm1.put(1, i, lm.get(1, (int)ii.get(i))[0]);
 			idf1.put(0, i, idf.get(0, (int)ii.get(i))[0]);
+		}
+		get_visible_landmarksLogCounter++;
+		if(logLevel_get_visible_landmarks == ConfigFile.LogLevel.Full && (get_visible_landmarksLogCounter == 0 || get_visible_landmarksLogCounter > logFreq )){
+			get_visible_landmarksLogCounter = 0;
+			System.out.println("EfkSlamSim.get_visibile_landmarks, iteration " + iteration);
+			System.out.println("Visible landmarks IDs:");
+			System.out.println(idf1.dump());
+			System.out.println("Visible landmarks coords:");
+			System.out.println(lm1.dump());
 		}
 		
 		retValue[0] = lm1;
@@ -771,18 +799,18 @@ public class EfkSlamSim
 	
 	public double[] add_control_noise(double V, double G, Mat Q, boolean addnoise)
 	{
-		double[] retValue = new double[2];
-		retValue[0] = V;
-		retValue[1] = G;
+		//double[] retValue = new double[2];
+		retValue_add_control_noise[0] = V;
+		retValue_add_control_noise[1] = G;
 		
 		if(addnoise)
 		{
 			Random r = new Random();
-			retValue[0] = V = V + r.nextGaussian() * Math.sqrt(Q.get(0, 0)[0]);
-			retValue[1] = G = G + r.nextGaussian() * Math.sqrt(Q.get(1, 1)[0]);
+			retValue_add_control_noise[0] = V = V + r.nextGaussian() * Math.sqrt(Q.get(0, 0)[0]);
+			retValue_add_control_noise[1] = G = G + r.nextGaussian() * Math.sqrt(Q.get(1, 1)[0]);
 		}
 		
-		return retValue;
+		return retValue_add_control_noise;
 	}
 	
 	public Mat vehicle_model(Mat xv, double V, double G, double WB, double dt)
@@ -794,29 +822,41 @@ public class EfkSlamSim
 		return xv;
 	}
 	
-	public double[] compute_steering(Mat x, Mat wp, int iwp, double minD, double G, double rateG, double maxG, double dt)
+	public void compute_steering(Mat x, Mat wp, int iwp, double minD, double G, double rateG, double maxG, double dt)
 	{
-		double[] retValue = new double[2];
-		retValue[0] = G;
-		retValue[1] = iwp;
-		
+		//double[] retValue = new double[2];
+		retValue_compute_steering_G = G;
+		retValue_compute_steering_iwp = iwp;
+		if(wp == null) {
+			System.out.println("EfkSlamSim.compute_steering: wp is null !");
+			System.exit(1);
+		}
 		Mat cwp = wp.submat(0, wp.rows(), iwp, iwp + 1);
 		double d2 = (Math.pow(cwp.get(0, 0)[0]-x.get(0, 0)[0], 2) + Math.pow(cwp.get(1, 0)[0] - x.get(1, 0)[0], 2));
 		
 		if(d2 < Math.pow(minD, 2))
 		{
-			retValue[1] = ++iwp; //switch to next
+			retValue_compute_steering_iwp = ++iwp; //switch to next
 			if(iwp > wp.cols() - 1)
 			{
-				retValue[1] = iwp = -1;
-				return retValue;
+				retValue_compute_steering_iwp = iwp = -1;
+				return;
 			}
 			cwp = wp.submat(0, cwp.rows(), iwp, iwp + 1);
 		}
 		
 		// compute change in G to point towards current waypoint
-		double deltaG = pi_to_pi(Math.atan2(cwp.get(1, 0)[0] - x.get(1, 0)[0], cwp.get(0, 0)[0] - x.get(0, 0)[0])  - x.get(2, 0)[0] - G);
+		// Math.atan2 result is -pi to pi in radians
+		// Core.fastAtan2 result is 0 to 360 in degrees
+		//double deltaG = pi_to_pi(Math.atan2(cwp.get(1, 0)[0] - x.get(1, 0)[0], cwp.get(0, 0)[0] - x.get(0, 0)[0])  - x.get(2, 0)[0] - G);
 		
+		float yy = (float)(cwp.get(1, 0)[0] - x.get(1, 0)[0]);
+		float xx = (float)(cwp.get(0, 0)[0] - x.get(0, 0)[0]);
+		double deltaG_0to360 = Core.fastAtan2(yy, xx);
+		double deltaG = deltaG_0to360/180;
+		deltaG *= Math.PI;
+		deltaG = deltaG - x.get(2, 0)[0] - G;
+		deltaG = pi_to_pi(deltaG);
 		//limit rate
 		double maxDelta= rateG*dt;
 		if (Math.abs(deltaG) > maxDelta)
@@ -825,25 +865,19 @@ public class EfkSlamSim
 		}
 		
 		//limit angle
-		G= G + deltaG;
+		G = G + deltaG;
 		if (Math.abs(G) > maxG)
-		    G= sign(G) * maxG;
-		
-		retValue[0] = G;
-		
-		return retValue;
+		    G = sign(G) * maxG;
+		retValue_compute_steering_G = G;
 	}
 	
-	public double sign(double x)
+	public int sign(double x)
 	{
-		double sign = 0;
+		int sign = 0;
 		if(x < 0)
 			sign = -1;
 		else if(x > 0)
 			sign = 1;
-		else
-			sign = 0;
-		
 		return sign;
 	}
 	
@@ -858,23 +892,18 @@ public class EfkSlamSim
 	public double[] pi_to_pi(double[] angle)
 	{
 		for(int i = 0; i < angle.length; i++)
+		{
 			angle[i] = angle[i]%(2*Math.PI);
-		
-		for(int i = 0; i < angle.length; i++)
-		{
-			if(angle[i] > Math.PI)
+			if(angle[i] > Math.PI) {
 				angle[i] = angle[i] - 2*Math.PI;
-		}
-		
-		for(int i = 0; i < angle.length; i++)
-		{
-			if(angle[i] < -Math.PI)
+			}
+			else if(angle[i] < -Math.PI) {
 				angle[i] = angle[i] + 2*Math.PI;
+			}
 		}
-		
 		return angle;
 	}
-	Ellipse getErrorEllipse(double chisquare, Point mean, Mat covmat, Mat xtrue, Mat lm, Mat x, ConfigFile.LogLevel logLvl) {
+	Ellipse getErrorEllipse(double chisquare, Point mean, Mat covmat, Mat xtrue, Mat lm, Mat x) {
 		Mat eigenvalues, eigenvectors;
 		int cols = covmat.cols();
 		int rows = covmat.rows();
@@ -883,7 +912,7 @@ public class EfkSlamSim
 		eigenvalues = new Mat(rows, 1, CvType.CV_64F);
 		eigenvectors = new Mat(rows, cols, CvType.CV_64F);
 		
-		if(logLvl == ConfigFile.LogLevel.Full) {
+		if(logLvl_getErrorEllipse == ConfigFile.LogLevel.Full) {
 		System.out.println("Mean x = " + mean.x + " y = " + mean.y);
 		System.out.println("xtrue " + xtrue.rows() + "x" + xtrue.cols());
 		System.out.println(xtrue.dump());
@@ -903,7 +932,7 @@ public class EfkSlamSim
 		}
 		boolean eigenRes = Core.eigen(covmat, eigenvalues, eigenvectors);
 		
-		if(logLvl == ConfigFile.LogLevel.Full) {
+		if(logLvl_getErrorEllipse == ConfigFile.LogLevel.Full) {
 		System.out.println(" Core.eigen finished, res = " + eigenRes);
 		System.out.println("eigenvalues " + eigenvalues.rows() + "x" + eigenvalues.cols());
 		System.out.println(eigenvalues.dump());
@@ -923,7 +952,7 @@ public class EfkSlamSim
 		//float angleDeg = 180*angleRad/3.14159265359f;
 		float angleRad = angleDeg/180;
 		angleRad *= 3.14159265359f;
-		if(logLvl == ConfigFile.LogLevel.Full) {
+		if(logLvl_getErrorEllipse == ConfigFile.LogLevel.Full) {
 		System.out.println("eigenvector(0,1) = " + x01f + " ; eigenvector(0,0) = " + x00f);
 		System.out.println("Angle = " + angleDeg + " deg = " + angleRad + " radians");
 		}
@@ -933,7 +962,7 @@ public class EfkSlamSim
 		double halfmajoraxissize = chisquare*Math.sqrt(eigenVal00);
 		double halfminoraxissize = chisquare*Math.sqrt(eigenVal01);
 		
-		if(logLvl == ConfigFile.LogLevel.Full) {
+		if(logLvl_getErrorEllipse == ConfigFile.LogLevel.Full) {
 		System.out.println("eigenvalue(0,0) = " + eigenVal00);
 		System.out.println("Half major axis = " + halfmajoraxissize);
 		System.out.println("eigenvalue(0,1) = " + eigenVal01);

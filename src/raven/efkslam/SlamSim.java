@@ -14,13 +14,18 @@ import raven.efkslam.Landmarks.Landmark;
 import raven.efkslam.ConfigFile;
 import raven.game.Waypoints;
 import raven.game.Waypoints.Wpt;
+import raven.game.RavenGame;
 import raven.math.Vector2D;
 import raven.ui.GameCanvas;
 import raven.utils.BoundedBuffer;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 public class SlamSim implements Runnable {
 	private String name;
 	private EfkSlamSim efkSlam = new EfkSlamSim();
+	raven.game.RavenGame parent;
+	private ReentrantLock ellipsesLock;
 	Mat wp;
 	Mat lm;
 	Mat veh;
@@ -43,9 +48,11 @@ public class SlamSim implements Runnable {
 	Waypoints trueTrack = new Waypoints();
 	Ellipses poseErrorEllipses = new Ellipses();
 	
-	public SlamSim(String name)
+	public SlamSim(String name, RavenGame parent, ReentrantLock ellipsesLock)
 	{
 		this.name = name;
+		this.parent = parent;
+		this.ellipsesLock = ellipsesLock;
 		//path = new Waypoints();
 		//trueTrack = new Waypoints();
 	}
@@ -122,16 +129,23 @@ public class SlamSim implements Runnable {
 		while(iwp != -1) // loop iterates over waypoints
 		{
 			iteration++;
+			efkSlam.iteration = iteration;
 			drawPoseEllipseFreqCount++;
 			if(drawPoseEllipseFreqCount > ConfigFile.PoseErrorEllipseFreq) {
 				drawPoseEllipseFreqCount = 0;
-				Ellipse ellipse = efkSlam.getErrorEllipse(2.4477, new Point(x.get(0, 0)[0], x.get(1, 0)[0]), P.submat(0,2,0,2), xtrue, lm, x, ConfigFile.LogLevel.Off);
-				poseErrorEllipses.addEllipse(ellipse);
+				Ellipse ellipse = efkSlam.getErrorEllipse(2.4477, new Point(x.get(0, 0)[0], x.get(1, 0)[0]), P.submat(0,2,0,2), xtrue, lm, x);
+				ellipsesLock.lock();
+				try {
+					poseErrorEllipses.addEllipse(ellipse);
+				}
+				finally {
+					ellipsesLock.unlock();
+				}
 			}
 			//compute true data
-			double[] retValue = efkSlam.compute_steering(xtrue, wp, iwp, ConfigFile.AT_WAYPOINT, G, ConfigFile.RATEG, ConfigFile.MAXG, dt);
-			G = (double)retValue[0]; // steer angle
-			iwp = (int)retValue[1]; // waypoint index
+			efkSlam.compute_steering(xtrue, wp, iwp, ConfigFile.AT_WAYPOINT, G, ConfigFile.RATEG, ConfigFile.MAXG, dt);
+			G = efkSlam.retValue_compute_steering_G; // steer angle
+			iwp = efkSlam.retValue_compute_steering_iwp; // waypoint index
 			
 			if (iwp == -1 && ConfigFile.NUMBER_LOOPS > 1) //perform loops: if final waypoint reached, go back to first
 			{
@@ -149,8 +163,8 @@ public class SlamSim implements Runnable {
 			
 			//EKF predict step
 		    Mat[] retValue2 = efkSlam.predict (x,P, Vn, Gn, QE, ConfigFile.WHEELBASE, dt);
-		    x = retValue2[0]; // SLAM state vector, robot pose - position and orientation
-		    P = retValue2[1]; // the diagonals of the SLAM covariance matrix
+		    x = retValue2[0]; 
+		    P = retValue2[1];
 		    
 		    //if heading known, observe heading
 			Mat[] retValue3 = efkSlam.observe_heading(x, P, xtrue.get(2, 0)[0], ConfigFile.SWITCH_HEADING_KNOWN);
@@ -163,9 +177,12 @@ public class SlamSim implements Runnable {
 		    {
 		    	dtsum = 0;
 		    	
+		    	System.out.println(name + " rover, calling get_observations");
 		    	Mat[] retValue4 = efkSlam.get_observations(xtrue, lm, ftag, ConfigFile.MAX_RANGE);
 		    	Mat z = retValue4[0];
 		    	Mat ftag_visible = retValue4[1];
+		    	System.out.println(name + " rover, Observed landmarks range and bearing");
+		    	System.out.println(z.dump());
 		    	
 		    	Mat zf = null;
 		    	Mat idf = null;
@@ -212,8 +229,8 @@ public class SlamSim implements Runnable {
 	public void renderPoseErrorEllipses(){
 		poseErrorEllipses.render();
 	}
-	Ellipse getErrorEllipse(double chisquare, Point mean, Mat covmat, Mat xtrue, Mat lm, Mat x, ConfigFile.LogLevel logLvl) {
-		return efkSlam.getErrorEllipse(chisquare, mean, covmat, xtrue, lm, x, logLvl);
+	Ellipse getErrorEllipse(double chisquare, Point mean, Mat covmat, Mat xtrue, Mat lm, Mat x) {
+		return efkSlam.getErrorEllipse(chisquare, mean, covmat, xtrue, lm, x);
 	}
 	
  	public void setLandmarks(Landmarks landmarks)

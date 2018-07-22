@@ -18,6 +18,8 @@ import javax.swing.JPanel;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 import raven.efkslam.SlamSim;
 import raven.efkslam.Landmarks.Landmark;
 import raven.efkslam.Pose;
@@ -79,6 +81,11 @@ public class RavenGame {
 	 */
 	GraveMarkers graveMarkers = new GraveMarkers(RavenScript.getDouble("GraveLifetime"));
 	
+	public volatile boolean firstRoverStarted = false;
+	public volatile boolean secondRoverStarted = false;
+	
+	private final ReentrantLock ellipsesLockFirst = new ReentrantLock();
+	private final ReentrantLock ellipsesLockSecond = new ReentrantLock();
 	Waypoints wpts = new Waypoints();
 	Waypoints track_slam = new Waypoints();
 	Waypoints trueTrack = new Waypoints();
@@ -96,14 +103,13 @@ public class RavenGame {
 	//TODO: add items for slam
 	//Slam slam = new Slam();
 	//BoundedBuffer<Pose> bufferSlamSim = new BoundedBuffer<Pose>(5);
-	SlamSim slamsim = new SlamSim("Alpha");
+	SlamSim slamsim = new SlamSim("Alpha", this, ellipsesLockFirst);
 	Landmarks landmarks = new Landmarks();
 	
-	SlamSim slamsimSecond = new SlamSim("Beta");
+	SlamSim slamsimSecond = new SlamSim("Beta", this, ellipsesLockSecond);
 	Landmarks landmarksSecond = new Landmarks();
 	
 	
-
 	public Waypoints getTrackSlam()
 	{
 		return this.track_slam;
@@ -186,29 +192,48 @@ public class RavenGame {
 		// render the map
 		map.render();
 		graveMarkers.render();
-		
 		wpts.render();
 		landmarks.render();
-		track_slam.setColor(Color.GREEN);
-		track_slam.setDrawPoint(false);
-		track_slam.render();
+		if(firstRoverStarted) {
+			this.track_slam = slamsim.getSlamPath();
+			this.trueTrack = slamsim.getTrueTrack();
+			track_slam.setColor(Color.GREEN);
+			track_slam.setDrawPoint(false);
+			track_slam.render();
 		
-		trueTrack.setColor(Color.RED);
-		trueTrack.setDrawPoint(false);
-		trueTrack.render();
-		slamsim.renderPoseErrorEllipses();
+			trueTrack.setColor(Color.RED);
+			trueTrack.setDrawPoint(false);
+			trueTrack.render();
+			ellipsesLockFirst.lock();
+			try {
+				slamsim.renderPoseErrorEllipses();
+			}
+			finally {
+				ellipsesLockFirst.unlock();
+			}
+		}
 		
 		if(ConfigFile.RunTwoRovers) {
 			wptsSecond.render();
 			landmarksSecond.render();
-			track_slamSecond.setColor(Color.GREEN);
-			track_slamSecond.setDrawPoint(false);
-			track_slamSecond.render();
+			if(secondRoverStarted) {
+				this.track_slamSecond = slamsim.getSlamPath();
+				this.trueTrackSecond = slamsim.getTrueTrack();
+				track_slamSecond.setColor(Color.GREEN);
+				track_slamSecond.setDrawPoint(false);
+				track_slamSecond.render();
 		
-			trueTrackSecond.setColor(Color.RED);
-			trueTrackSecond.setDrawPoint(false);
-			trueTrackSecond.render();
-			slamsimSecond.renderPoseErrorEllipses();
+				trueTrackSecond.setColor(Color.RED);
+				trueTrackSecond.setDrawPoint(false);
+				trueTrackSecond.render();
+				ellipsesLockSecond.lock();
+				try {
+					slamsimSecond.renderPoseErrorEllipses();
+				}
+				finally {
+					ellipsesLockSecond.unlock();
+				}
+			}
 		}
 		
 		//GameCanvas.ellipse(400, 200, 100, 50, Math.PI*0.25);
@@ -836,28 +861,34 @@ public class RavenGame {
 	
 	public void plotEFKSlamPath(){
 		if(ConfigFile.RunTwoRovers) {
-		Thread t_slamBotFirst = new Thread(slamsim);
-		Thread t_slamBotSecond = new Thread(slamsimSecond);
-		//slamsim.run();
-		t_slamBotFirst.start();
-		t_slamBotSecond.start();
-		try {
-			t_slamBotFirst.join();
-			t_slamBotSecond.join();
-		}
-		catch(InterruptedException ex){
-			ex.printStackTrace();
-		}
-		this.track_slam = slamsim.getSlamPath();
-		this.trueTrack = slamsim.getTrueTrack();
-		
-		this.track_slamSecond = slamsimSecond.getSlamPath();
-		this.trueTrackSecond = slamsimSecond.getTrueTrack();
-		}
-		else {
-			slamsim.run();
+			Thread t_slamBotFirst = new Thread(slamsim);
+			Thread t_slamBotSecond = new Thread(slamsimSecond);
+			//slamsim.run();
+			t_slamBotFirst.start();
+			t_slamBotSecond.start();
+			firstRoverStarted = true;
+			secondRoverStarted = true;
+			/*
+			try {
+				t_slamBotFirst.join();
+				t_slamBotSecond.join();
+			}
+			catch(InterruptedException ex){
+				ex.printStackTrace();
+			}
 			this.track_slam = slamsim.getSlamPath();
 			this.trueTrack = slamsim.getTrueTrack();
+		
+			this.track_slamSecond = slamsimSecond.getSlamPath();
+			this.trueTrackSecond = slamsimSecond.getTrueTrack();
+			*/
+		}
+		else {
+			Thread t_slamBotFirst = new Thread(slamsim);
+			t_slamBotFirst.start();
+			firstRoverStarted = true;
+			//this.track_slam = slamsim.getSlamPath();
+			//this.trueTrack = slamsim.getTrueTrack();
 		}
 	}
 	

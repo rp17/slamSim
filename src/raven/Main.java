@@ -45,13 +45,17 @@ public class Main {
 	  	      public void run() {
 	  	    	GameCanvas.startDrawing();
 	  	    	game.render();
+	  	    	GameCanvas.stopDrawing();
 	  	      }
 	  	    };
+	  	    
+	  	/*   
 	  	Runnable stopDrawingRunnable = new Runnable() {
 	  	      public void run() {
 	  	    	GameCanvas.stopDrawing();
 	  	      }
-	  	    };
+	  	    };*/
+	  	    
     	long lastTime = System.nanoTime();
     	
     	while (true) {
@@ -68,15 +72,15 @@ public class Main {
     		// Always dispose the canvas
     		//if(game.getMap() != null){
     		//if(!game.isPaused()) {
-    			try {
+    			//try {
     				//GameCanvas.startDrawing(game.getMap().getSizeX(), game.getMap().getSizeY());
     				
     				SwingUtilities.invokeLater(gameRenderRunnable);
     				
-    			} finally {
-    				SwingUtilities.invokeLater(stopDrawingRunnable);
-    				
-    			}
+    			//} 
+    			//finally {
+    				//SwingUtilities.invokeLater(stopDrawingRunnable);
+    			//}
     		//}
     		//}
     		
@@ -85,7 +89,7 @@ public class Main {
 				Thread.sleep(millisToNextUpdate);	
 			} catch (InterruptedException ex) {
 				ex.printStackTrace();
-				break; // breaking out of the while(true) loop
+				break; // breaking out of the while(true) loop, terminating the main simulation loop
 			}
     	}
     }

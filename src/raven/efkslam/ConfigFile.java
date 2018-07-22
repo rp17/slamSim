@@ -5,13 +5,13 @@ import org.opencv.core.Mat;
 public class ConfigFile 
 {
 	public static enum LogLevel {Off, Medium, Full};
-	public final static boolean RunTwoRovers = false;
+	public final static boolean RunTwoRovers = true;
 	public final static int SHIFT_Y = 300;
 	public final static int PoseErrorEllipseFreq = 1000;
 	//control parameters
 	public static double V = 3; //m/s
 	public static double MAXG= 30*Math.PI/180;// radians, maximum steering angle (-MAXG < g < MAXG)
-	public static double RATEG= 5*Math.PI/180;// rad/s, maximum rate of change in steer angle
+	public static double RATEG= 20*Math.PI/180;// rad/s, maximum rate of change in steer angle
 	public static double WHEELBASE= 4;// metres, vehicle wheel-base
 	public static double DT_CONTROLS= 0.025;// seconds, time interval between control signals
 	
