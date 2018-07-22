@@ -19,13 +19,18 @@ public class EfkSlamSim
 	int get_observationsLogCounter = 0;
 	ConfigFile.LogLevel logLevel_get_observations = ConfigFile.LogLevel.Full;
 	ConfigFile.LogLevel logLvl_getErrorEllipse = ConfigFile.LogLevel.Off;
+	private StringBuilder thisRoverDebugString;
+	
+	public EfkSlamSim(StringBuilder thisRoverDebugString) {
+		this.thisRoverDebugString = thisRoverDebugString;
+	}
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) 
 	{
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-		(new EfkSlamSim()).test();
+		(new EfkSlamSim(new StringBuilder(5000))).test();
 	}
 	/**
 	 * @param args
@@ -622,13 +627,21 @@ public class EfkSlamSim
 		z = compute_range_bearing(x, lm_copy);
 		retValue[0] = z;
 		get_observationsLogCounter++;
-		if(logLevel_get_observations == ConfigFile.LogLevel.Full && (get_observationsLogCounter == 0 || get_observationsLogCounter > logFreq )){
+		// if(logLevel_get_observations == ConfigFile.LogLevel.Full && (get_observationsLogCounter == 0 || get_observationsLogCounter > logFreq )){
+		if(logLevel_get_observations == ConfigFile.LogLevel.Full && !z.empty()) {
 			get_observationsLogCounter = 0;
+			/*
 			System.out.println("EfkSlamSim.get_observations, iteration " + iteration);
 			System.out.println("Observed landmarks IDs:");
 			System.out.println(idf.dump());
 			System.out.println("Observed landmarks; row 0 - range; row 1 - bearing:");
 			System.out.println(z.dump());
+			*/
+			thisRoverDebugString.append("EfkSlamSim.get_observations, iteration " + iteration + "\n");
+			thisRoverDebugString.append("Observed landmarks IDs:\n");
+			thisRoverDebugString.append(idf.dump() + "\n");
+			thisRoverDebugString.append("Observed landmarks; row 0 - range; row 1 - bearing:\n");
+			thisRoverDebugString.append(z.dump() + "\n");
 		}
 		return retValue;
 	}
@@ -704,13 +717,21 @@ public class EfkSlamSim
 			idf1.put(0, i, idf.get(0, (int)ii.get(i))[0]);
 		}
 		get_visible_landmarksLogCounter++;
-		if(logLevel_get_visible_landmarks == ConfigFile.LogLevel.Full && (get_visible_landmarksLogCounter == 0 || get_visible_landmarksLogCounter > logFreq )){
+		//if(logLevel_get_visible_landmarks == ConfigFile.LogLevel.Full && (get_visible_landmarksLogCounter == 0 || get_visible_landmarksLogCounter > logFreq )){
+		if(logLevel_get_visible_landmarks == ConfigFile.LogLevel.Full && !lm1.empty()) {
 			get_visible_landmarksLogCounter = 0;
+			/*
 			System.out.println("EfkSlamSim.get_visibile_landmarks, iteration " + iteration);
 			System.out.println("Visible landmarks IDs:");
 			System.out.println(idf1.dump());
 			System.out.println("Visible landmarks coords:");
 			System.out.println(lm1.dump());
+			*/
+			thisRoverDebugString.append("EfkSlamSim.get_visibile_landmarks, iteration " + iteration + "\n");
+			thisRoverDebugString.append("Visible landmarks IDs:\n");
+			thisRoverDebugString.append(idf1.dump() + "\n");
+			thisRoverDebugString.append("Visible landmarks coords:\n");
+			thisRoverDebugString.append(lm1.dump() + "\n");
 		}
 		
 		retValue[0] = lm1;
@@ -828,8 +849,10 @@ public class EfkSlamSim
 		retValue_compute_steering_G = G;
 		retValue_compute_steering_iwp = iwp;
 		if(wp == null) {
-			System.out.println("EfkSlamSim.compute_steering: wp is null !");
-			System.exit(1);
+			String msg = "EfkSlamSim.compute_steering: wp is null !\n";
+			System.out.print(msg);
+			thisRoverDebugString.append(msg);
+			//System.exit(1);
 		}
 		Mat cwp = wp.submat(0, wp.rows(), iwp, iwp + 1);
 		double d2 = (Math.pow(cwp.get(0, 0)[0]-x.get(0, 0)[0], 2) + Math.pow(cwp.get(1, 0)[0] - x.get(1, 0)[0], 2));
@@ -913,34 +936,34 @@ public class EfkSlamSim
 		eigenvectors = new Mat(rows, cols, CvType.CV_64F);
 		
 		if(logLvl_getErrorEllipse == ConfigFile.LogLevel.Full) {
-		System.out.println("Mean x = " + mean.x + " y = " + mean.y);
-		System.out.println("xtrue " + xtrue.rows() + "x" + xtrue.cols());
-		System.out.println(xtrue.dump());
-		System.out.println();
+			System.out.println("Mean x = " + mean.x + " y = " + mean.y);
+			System.out.println("xtrue " + xtrue.rows() + "x" + xtrue.cols());
+			System.out.println(xtrue.dump());
+			System.out.println();
 		
-	    System.out.println("x " + x.rows() + "x" + x.cols());
-		System.out.println(x.dump());
-		System.out.println();
+			System.out.println("x " + x.rows() + "x" + x.cols());
+			System.out.println(x.dump());
+			System.out.println();
 		
-		System.out.println("landmarks " + lm.rows() + "x" + lm.cols());
-		System.out.println(lm.dump());
-		System.out.println();
+			System.out.println("landmarks " + lm.rows() + "x" + lm.cols());
+			System.out.println(lm.dump());
+			System.out.println();
 		
-		System.out.println("Covmat " + covmat.rows() + "x" + covmat.cols());
-		System.out.println(covmat.dump());
-		System.out.println();
+			System.out.println("Covmat " + covmat.rows() + "x" + covmat.cols());
+			System.out.println(covmat.dump());
+			System.out.println();
 		}
 		boolean eigenRes = Core.eigen(covmat, eigenvalues, eigenvectors);
 		
 		if(logLvl_getErrorEllipse == ConfigFile.LogLevel.Full) {
-		System.out.println(" Core.eigen finished, res = " + eigenRes);
-		System.out.println("eigenvalues " + eigenvalues.rows() + "x" + eigenvalues.cols());
-		System.out.println(eigenvalues.dump());
-		System.out.println();
+			System.out.println(" Core.eigen finished, res = " + eigenRes);
+			System.out.println("eigenvalues " + eigenvalues.rows() + "x" + eigenvalues.cols());
+			System.out.println(eigenvalues.dump());
+			System.out.println();
 		
-		System.out.println("eigenvectors " + eigenvectors.rows() + "x" + eigenvectors.cols());
-		System.out.println(eigenvectors.dump());
-		System.out.println();
+			System.out.println("eigenvectors " + eigenvectors.rows() + "x" + eigenvectors.cols());
+			System.out.println(eigenvectors.dump());
+			System.out.println();
 		}
 		
 		double x01 = eigenvectors.get(0, 1)[0];
@@ -953,8 +976,8 @@ public class EfkSlamSim
 		float angleRad = angleDeg/180;
 		angleRad *= 3.14159265359f;
 		if(logLvl_getErrorEllipse == ConfigFile.LogLevel.Full) {
-		System.out.println("eigenvector(0,1) = " + x01f + " ; eigenvector(0,0) = " + x00f);
-		System.out.println("Angle = " + angleDeg + " deg = " + angleRad + " radians");
+			System.out.println("eigenvector(0,1) = " + x01f + " ; eigenvector(0,0) = " + x00f);
+			System.out.println("Angle = " + angleDeg + " deg = " + angleRad + " radians");
 		}
 		double eigenVal00 = eigenvalues.get(0,0)[0];
 		double eigenVal01 = eigenvalues.get(1,0)[0];
@@ -963,10 +986,10 @@ public class EfkSlamSim
 		double halfminoraxissize = chisquare*Math.sqrt(eigenVal01);
 		
 		if(logLvl_getErrorEllipse == ConfigFile.LogLevel.Full) {
-		System.out.println("eigenvalue(0,0) = " + eigenVal00);
-		System.out.println("Half major axis = " + halfmajoraxissize);
-		System.out.println("eigenvalue(0,1) = " + eigenVal01);
-		System.out.println("Half minor axis = " + halfminoraxissize);
+			System.out.println("eigenvalue(0,0) = " + eigenVal00);
+			System.out.println("Half major axis = " + halfmajoraxissize);
+			System.out.println("eigenvalue(0,1) = " + eigenVal01);
+			System.out.println("Half minor axis = " + halfminoraxissize);
 		}
 		Ellipse ellipse = new Ellipse(mean.x, mean.y, halfmajoraxissize, halfminoraxissize, angleDeg);
 		return ellipse;

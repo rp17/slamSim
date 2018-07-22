@@ -19,6 +19,9 @@ import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.Map;
+import java.util.HashMap;
+import raven.efkslam.PublishingRoverPose;
 
 import raven.efkslam.SlamSim;
 import raven.efkslam.Landmarks.Landmark;
@@ -44,7 +47,6 @@ import raven.ui.RavenUI;
 import raven.utils.Log;
 import raven.utils.MapSerializer;
 import raven.utils.Regulator;
-import raven.utils.BoundedBuffer;
 import raven.Main;
 
 import java.awt.geom.Ellipse2D;
@@ -102,13 +104,13 @@ public class RavenGame {
 	
 	//TODO: add items for slam
 	//Slam slam = new Slam();
-	//BoundedBuffer<Pose> bufferSlamSim = new BoundedBuffer<Pose>(5);
-	SlamSim slamsim = new SlamSim("Alpha", this, ellipsesLockFirst);
+	String alphaName = "Alpha";
+	SlamSim slamsim;
 	Landmarks landmarks = new Landmarks();
-	
-	SlamSim slamsimSecond = new SlamSim("Beta", this, ellipsesLockSecond);
+	String betaName = "Beta";
+	SlamSim slamsimSecond;
 	Landmarks landmarksSecond = new Landmarks();
-	
+	private PublishingRoverPose sharedPoseMap;
 	
 	public Waypoints getTrackSlam()
 	{
@@ -172,6 +174,13 @@ public class RavenGame {
 
 	public RavenGame() {
 		EntityManager.reset();
+		Map<String, Pose> poseMap = new HashMap<String, Pose>();
+		poseMap.put(alphaName, new Pose());
+		poseMap.put(betaName, new Pose());
+		this.sharedPoseMap = new PublishingRoverPose(poseMap);
+		
+		this.slamsim = new SlamSim(alphaName, betaName, this, ellipsesLockFirst, sharedPoseMap);
+		this.slamsimSecond = new SlamSim(betaName, alphaName, this, ellipsesLockSecond, sharedPoseMap);
 		
 		try {
 			String mapName = RavenScript.getString("StartMap");
@@ -217,8 +226,8 @@ public class RavenGame {
 			wptsSecond.render();
 			landmarksSecond.render();
 			if(secondRoverStarted) {
-				this.track_slamSecond = slamsim.getSlamPath();
-				this.trueTrackSecond = slamsim.getTrueTrack();
+				this.track_slamSecond = slamsimSecond.getSlamPath();
+				this.trueTrackSecond = slamsimSecond.getTrueTrack();
 				track_slamSecond.setColor(Color.GREEN);
 				track_slamSecond.setDrawPoint(false);
 				track_slamSecond.render();

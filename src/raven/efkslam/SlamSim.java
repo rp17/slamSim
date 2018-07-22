@@ -2,6 +2,7 @@ package raven.efkslam;
 
 import java.awt.Color;
 import java.util.ArrayList;
+import java.lang.StringBuilder;
 
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
@@ -17,15 +18,28 @@ import raven.game.Waypoints.Wpt;
 import raven.game.RavenGame;
 import raven.math.Vector2D;
 import raven.ui.GameCanvas;
-import raven.utils.BoundedBuffer;
 
 import java.util.concurrent.locks.ReentrantLock;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.charset.Charset;
+import java.nio.file.StandardOpenOption;
+
 public class SlamSim implements Runnable {
 	private String name;
-	private EfkSlamSim efkSlam = new EfkSlamSim();
+	private String otherRoverName;
+	private EfkSlamSim efkSlam;
 	raven.game.RavenGame parent;
 	private ReentrantLock ellipsesLock;
+	private PublishingRoverPose sharedPoseMap;
+	private Pose otherRoverPose;
+	
+	private StringBuilder otherRoverPoseString = new StringBuilder(1000);
+	private StringBuilder thisRoverDebugString = new StringBuilder(5000);
 	Mat wp;
 	Mat lm;
 	Mat veh;
@@ -48,11 +62,14 @@ public class SlamSim implements Runnable {
 	Waypoints trueTrack = new Waypoints();
 	Ellipses poseErrorEllipses = new Ellipses();
 	
-	public SlamSim(String name, RavenGame parent, ReentrantLock ellipsesLock)
+	public SlamSim(String name, String otherRoverName, RavenGame parent, ReentrantLock ellipsesLock, PublishingRoverPose sharedPoseMap)
 	{
 		this.name = name;
 		this.parent = parent;
 		this.ellipsesLock = ellipsesLock;
+		this.sharedPoseMap = sharedPoseMap;
+		this.otherRoverName = otherRoverName;
+		this.efkSlam = new EfkSlamSim(thisRoverDebugString);
 		//path = new Waypoints();
 		//trueTrack = new Waypoints();
 	}
@@ -126,6 +143,9 @@ public class SlamSim implements Runnable {
 	{
 		Vector2D position = new Vector2D();
 		int drawPoseEllipseFreqCount = 0;
+		if(ConfigFile.RunTwoRovers) {
+			this.otherRoverPose = this.sharedPoseMap.getPose(otherRoverName);
+		}
 		while(iwp != -1) // loop iterates over waypoints
 		{
 			iteration++;
@@ -166,6 +186,15 @@ public class SlamSim implements Runnable {
 		    x = retValue2[0]; 
 		    P = retValue2[1];
 		    
+		    // set this rover's pose to shared map
+		    this.sharedPoseMap.setPose(name, xtrue.get(0, 0)[0], xtrue.get(1, 0)[0]);
+		    
+		    // get other rover's pose
+		    if(ConfigFile.RunTwoRovers) {
+		    	double otherX = otherRoverPose.x;
+		    	double otherY = otherRoverPose.y;
+		    	//otherRoverPoseString.append(name + " rover : " + otherRoverName + " pose x = " + otherX + " ; y = " + otherY + "\n");
+		    }
 		    //if heading known, observe heading
 			Mat[] retValue3 = efkSlam.observe_heading(x, P, xtrue.get(2, 0)[0], ConfigFile.SWITCH_HEADING_KNOWN);
 		    x = retValue3[0];
@@ -177,12 +206,16 @@ public class SlamSim implements Runnable {
 		    {
 		    	dtsum = 0;
 		    	
-		    	System.out.println(name + " rover, calling get_observations");
+		    	
 		    	Mat[] retValue4 = efkSlam.get_observations(xtrue, lm, ftag, ConfigFile.MAX_RANGE);
 		    	Mat z = retValue4[0];
 		    	Mat ftag_visible = retValue4[1];
-		    	System.out.println(name + " rover, Observed landmarks range and bearing");
-		    	System.out.println(z.dump());
+		    	
+		    	if(!z.empty()) {
+		    		thisRoverDebugString.append(name + " rover, calling get_observations\n");
+		    		thisRoverDebugString.append(name + " rover, Observed landmarks range and bearing\n");
+		    		thisRoverDebugString.append(z.dump() + "\n");
+		    	}
 		    	
 		    	Mat zf = null;
 		    	Mat idf = null;
@@ -216,6 +249,36 @@ public class SlamSim implements Runnable {
 			    path.addWpt(new Vector2D(position));
 		    }
 		}
+		
+		writeDebugFiles();
+	}
+	
+	public void writeDebugFiles() {
+		// Write to files the diagnostic data
+		
+		Path path = FileSystems.getDefault().getPath(".", name + "DebugTrace");
+		try(BufferedWriter writer =  Files.newBufferedWriter( path, Charset.defaultCharset(), 
+				                                                  StandardOpenOption.CREATE)){
+			writer.write(thisRoverDebugString.toString(), 0, thisRoverDebugString.toString().length());
+		}
+		catch(IOException ex) {
+			ex.printStackTrace();
+		}
+		
+		/*
+		if(ConfigFile.RunTwoRovers) {
+			Path pathPose = FileSystems.getDefault().getPath(".", name + "TraceOtherRoverPose");
+			try(BufferedWriter writer =  Files.newBufferedWriter( pathPose, Charset.defaultCharset(), 
+					                                                  StandardOpenOption.CREATE)){
+				writer.write(otherRoverPoseString.toString(), 0, otherRoverPoseString.toString().length());
+			}
+			catch(IOException ex) {
+				ex.printStackTrace();
+			}
+		}
+		*/
+		
+		
 	}
 	
 	public Waypoints getSlamPath()
