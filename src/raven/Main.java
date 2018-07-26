@@ -41,14 +41,29 @@ public class Main {
 	private static void gameLoop() {
     	
     	Log.info("raven", "Starting game...");
+    	/*
     	Runnable gameRenderRunnable = new Runnable() {
 	  	      public void run() {
-	  	    	GameCanvas.startDrawing();
-	  	    	game.render();
-	  	    	GameCanvas.stopDrawing();
+	  	    	  try{
+	  	    		  GameCanvas.startDrawing();
+	  	    		  game.render();
+	  	    	  }
+	  	    	  finally {
+	  	    		  GameCanvas.stopDrawing();
+	  	    	  }
 	  	      }
 	  	    };
-	  	    
+	  	    */
+    	
+    	Runnable gameRenderRunnable = () -> {
+    		try{
+	    		  GameCanvas.startDrawing();
+	    		  game.render();
+	    	  }
+	    	  finally {
+	    		  GameCanvas.stopDrawing();
+	    	  }
+    	};
 	  	/*   
 	  	Runnable stopDrawingRunnable = new Runnable() {
 	  	      public void run() {

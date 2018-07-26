@@ -38,6 +38,9 @@ public class SlamSim implements Runnable {
 	private PublishingRoverPose sharedPoseMap;
 	private Pose otherRoverPose;
 	
+	private double integralErrorSq = 0;
+	private double integralError = 0;
+	
 	private StringBuilder otherRoverPoseString = new StringBuilder(1000);
 	private StringBuilder thisRoverDebugString = new StringBuilder(5000);
 	Mat wp;
@@ -92,18 +95,46 @@ public class SlamSim implements Runnable {
 		xtrue.put(0, 0, robot_pos_x);
 		xtrue.put(1, 0, robot_pos_y);
 		
-		x = Mat.zeros(3, 1, CvType.CV_64F);
-		//initial x = [0] xr
-		//            [0] yr
-		//            [0] steer angle
+		if(ConfigFile.ExchangeData && ConfigFile.RunTwoRovers) {
+			x = Mat.zeros(5, 1, CvType.CV_64F);
+			//initial x = [0] xr; 0,0
+			//            [0] yr; 1,0
+			//            [0] steer angle; 2,0
+			//			  [0] x other robot; 3,0
+			//			  [0] y other robot; 4, 0
+			
+			this.otherRoverPose = this.sharedPoseMap.getPose(otherRoverName);
+			x.put(0, 0, robot_pos_x);
+			x.put(1, 0, robot_pos_y);
+			x.put(3, 0, otherRoverPose.x);
+			x.put(4, 0, otherRoverPose.y);
+			
+			P = Mat.zeros(5, 5, CvType.CV_64F);
+			//initial P = [0 0 0 0 0]  x1x1 x1y1 x1Q1 x1x2 x1y2
+			//            [0 0 0 0 0]  y1x1 y1y1 y1Q1 y1x2 y1y2
+			//            [0 0 0 0 0]  Q1x1 Q1y1 Q1Q1 Q1x2 Q1y2
+			//            [0 0 0 0 0]  x2x1 x2y1 x2Q1 x2x2 x2y2
+			//            [0 0 0 0 0]  y2x1 y2y1 y2Q1 y2x2 y2y2
+			
+		}
+		else {
+			x = Mat.zeros(3, 1, CvType.CV_64F);
+			//initial x = [0] xr
+			//            [0] yr
+			//            [0] steer angle
 		
-		x.put(0, 0, robot_pos_x);
-		x.put(1, 0, robot_pos_y);
+			x.put(0, 0, robot_pos_x);
+			x.put(1, 0, robot_pos_y);
+			P = Mat.zeros(3, 3, CvType.CV_64F);
+			//initial P = [0 0 0]	x1x1 x1y1 x1Q1
+			//            [0 0 0]	y1x1 y1y1 y1Q1
+			//            [0 0 0]	Q1x1 Q1y1 Q1Q1
+			
+		}
 		
-		P = Mat.zeros(3, 3, CvType.CV_64F);
-		//initial P = [0 0 0]
-		//            [0 0 0]
-		//            [0 0 0]
+		
+		
+		
 		
 		dt = ConfigFile.DT_CONTROLS;//change in time between predicts
 		dtsum = 0;//change in time since last observation
@@ -143,9 +174,15 @@ public class SlamSim implements Runnable {
 	{
 		Vector2D position = new Vector2D();
 		int drawPoseEllipseFreqCount = 0;
+		
+		double preTrueX = xtrue.get(0, 0)[0];
+		double preTrueY = xtrue.get(1, 0)[0];
+		double trueX = preTrueX;
+	    double trueY = preTrueY;
 		if(ConfigFile.RunTwoRovers) {
 			this.otherRoverPose = this.sharedPoseMap.getPose(otherRoverName);
 		}
+		try{
 		while(iwp != -1) // loop iterates over waypoints
 		{
 			iteration++;
@@ -182,7 +219,7 @@ public class SlamSim implements Runnable {
 			Gn = retValue1[1]; // steer angle
 			
 			//EKF predict step
-		    Mat[] retValue2 = efkSlam.predict (x,P, Vn, Gn, QE, ConfigFile.WHEELBASE, dt);
+		    Mat[] retValue2 = efkSlam.predict (x, P, Vn, Gn, QE, ConfigFile.WHEELBASE, dt);
 		    x = retValue2[0]; 
 		    P = retValue2[1];
 		    
@@ -193,6 +230,10 @@ public class SlamSim implements Runnable {
 		    if(ConfigFile.RunTwoRovers) {
 		    	double otherX = otherRoverPose.x;
 		    	double otherY = otherRoverPose.y;
+		    	if(ConfigFile.ExchangeData) {
+		    		x.put(3, 0, otherX);
+		    		x.put(4, 0, otherY);
+		    	}
 		    	//otherRoverPoseString.append(name + " rover : " + otherRoverName + " pose x = " + otherX + " ; y = " + otherY + "\n");
 		    }
 		    //if heading known, observe heading
@@ -244,15 +285,34 @@ public class SlamSim implements Runnable {
 	    		
 	    		position.x = x.get(0, 0)[0];
 			    position.y = x.get(1, 0)[0];
-			    double trueX = xtrue.get(0, 0)[0];
-			    double trueY = xtrue.get(1, 0)[0];
+			    trueX = xtrue.get(0, 0)[0];
+			    trueY = xtrue.get(1, 0)[0];
 			   
 			    trueTrack.addWpt(new Vector2D(trueX, trueY));
 			    path.addWpt(new Vector2D(position));
+			    
+			    
 		    }
+		    // update integral error
+		    double xDiff = position.x - trueX;
+		    double yDiff = position.y - trueY;
+		    double dist = xDiff*xDiff + yDiff*yDiff;
+		    //thisRoverDebugString.append("abs(estimate - truePos) = " + dist + "\n");
+		    //double deltaX = trueX - preTrueX;
+		    //double deltaY = trueY - preTrueY;
+		    //double deltaPos = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
+		    //integralErrorSq += dist*deltaPos;
+		    integralErrorSq += dist;
+		    preTrueX = trueX;
+		    preTrueY = trueY;
 		}
-		
+		}
+		finally {
+		integralError = Math.sqrt(integralErrorSq*dt);
+		thisRoverDebugString.append(name + " rover IntegralTrackErrorSquareNoDelta is " + integralErrorSq + "\n" +
+				"IntegralTrackError = " + integralError);
 		writeDebugFiles();
+		}
 	}
 	
 	public void writeDebugFiles() {

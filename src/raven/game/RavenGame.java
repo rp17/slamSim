@@ -821,10 +821,14 @@ public class RavenGame {
 		//slam.initKalman(pos.x, pos.y);
 		slamsim.setWaypoints(wpts);
 		slamsim.setLandmarks(landmarks);
+		
+		Vector2D pos2 = new Vector2D(pos.x, pos.y + ConfigFile.SHIFT_Y);
+		this.sharedPoseMap.setPose(alphaName, pos.x, pos.y);
+		this.sharedPoseMap.setPose(betaName, pos2.x, pos2.y);
 		slamsim.initialize(pos.x, pos.y);
 		Log.info("game", "Bot " + bot.ID() + " added");
 		
-		Vector2D pos2 = new Vector2D(pos.x, pos.y + ConfigFile.SHIFT_Y);
+		
 		// second bot
 		if(ConfigFile.RunTwoRovers) {
 			IRavenBot bot2 = new RoverBot(this, pos2, Goal.GoalType.goal_roverthink);

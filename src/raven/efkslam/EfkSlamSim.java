@@ -761,12 +761,16 @@ public class EfkSlamSim
 	public Mat[] predict(Mat x, Mat P, double v, double g, Mat Q, double WB, double dt)
 	{
 		Mat[] retValue = new Mat[2];
-		double s = Math.sin(g + x.get(2, 0)[0]);
+		double s = Math.sin(g + x.get(2, 0)[0]); // deltaQ + Qrk-1
 		double c = Math.cos(g + x.get(2, 0)[0]);
 		double vts = v * dt * s;
 		double vtc = v * dt * c;
 		
 		//jacobians
+		// [1 0 -vts]
+		// [0 1  vtc]
+		// [0 0   1 ]
+		
 		Mat Gv = new Mat(3, 3, CvType.CV_64F);
 		Gv.put(0, 0, 1);
 		Gv.put(0, 1, 0);
@@ -778,6 +782,9 @@ public class EfkSlamSim
 		Gv.put(2, 1, 0);
 		Gv.put(2, 2, 1);
 		
+		// [dt*c 								-vts]
+		// [dt*s 	 							vtc]
+		// [dt*sin(deltaQ)/WheelBase  v*dt*cos(deltaQ)/WheelBase]
 		Mat Gu = new Mat(3, 2, CvType.CV_64F);
 		Gu.put(0, 0, dt * c);
 		Gu.put(0, 1, -vts);
@@ -787,24 +794,40 @@ public class EfkSlamSim
 		Gu.put(2, 1, v * dt * Math.cos(g)/WB);
 		
 		//predict covariance
-		Mat p1 = P.submat(0, 3, 0, 3);
+		Mat p1 = P.submat(0, 3, 0, 3); // pose parameters correlation Prr
 		Mat temp1 = new Mat(3, 3, CvType.CV_64F);
-		Core.gemm(Gv, P.submat(0, 3, 0, 3), 1, new Mat(), 0, temp1);
-		Core.gemm(temp1, Gv.t(), 1, new Mat(), 0, temp1);
+		
+		// generalized matrix multiplication
+		// gemm(src1, src2, alpha, src3, beta, dst) 
+		// dst = alpha * src1 ^T * src2 + beta * src3 ^T
+		
+		Core.gemm(Gv, P.submat(0, 3, 0, 3), 1, new Mat(), 0, temp1); // Gv*Prr ; 3x3 * 3x3
+		Core.gemm(temp1, Gv.t(), 1, new Mat(), 0, temp1); // Gv*Prr*Gv.t ; 3x3 * 3x3
 		
 		Mat temp2 = new Mat(3, 3, CvType.CV_64F);
-		Core.gemm(Gu, Q, 1, new Mat(), 0, temp2);
-		Core.gemm(temp2, Gu.t(), 1, new Mat(), 0, temp2);
+		Core.gemm(Gu, Q, 1, new Mat(), 0, temp2); // Gu*Q ; 3x3 * 3x3
+		Core.gemm(temp2, Gu.t(), 1, new Mat(), 0, temp2); // Gu*Q*Gu.t ; 3x3 * 3x3
 		
-		Core.add(temp1, temp2, p1);
+		Core.add(temp1, temp2, p1); // Gv*Prr*Gv.t + Gu*Q*Gu.t to top left 3x3 of P
 	
+		// if more than Prr in P ; i.e. landmarks are there then:
 		if(P.rows() > 3)
 		{
-			Mat p2 = P.submat(0, 3, 3, P.cols());
-			Core.gemm(Gv, p2, 1, new Mat(), 0, p2);
+			// [- - - x x x ..]
+			// [- - - x x x ..]
+			// [- - - x x x ..]
 			
+			Mat p2 = P.submat(0, 3, 3, P.cols()); // 
+			Core.gemm(Gv, p2, 1, new Mat(), 0, p2); // Gv*p2 -> p2
+			
+			// [- - -]
+			// [- - -]
+			// [- - -]
+			// [x x x]
+			// [x x x]
+			// [. . .]
 			Mat p3 = P.submat(3, P.rows(), 0, 3);
-			p2.t().copyTo(p3);
+			p2.t().copyTo(p3); // p2.t -> p3
 		}
 		
 		//predict state

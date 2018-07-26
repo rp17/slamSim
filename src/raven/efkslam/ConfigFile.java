@@ -6,6 +6,7 @@ public class ConfigFile
 {
 	public static enum LogLevel {Off, Medium, Full};
 	public final static boolean RunTwoRovers = true;
+	public final static boolean ExchangeData = true;
 	public final static int SHIFT_Y = 300;
 	public final static int PoseErrorEllipseFreq = 1000;
 	//control parameters
@@ -61,8 +62,8 @@ public class ConfigFile
 	public static double NUMBER_LOOPS= 1; // number of loops through the waypoint list
 
 	//switches
-	public static boolean SWITCH_CONTROL_NOISE= false; // if 0, velocity and gamma are perfect
-	public static boolean SWITCH_SENSOR_NOISE = false; // if 0, measurements are perfect
+	public static boolean SWITCH_CONTROL_NOISE= true; // if 0, velocity and gamma are perfect
+	public static boolean SWITCH_SENSOR_NOISE = true; // if 0, measurements are perfect
 	public static boolean SWITCH_INFLATE_NOISE= false; // if 1, the estimated Q and R are inflated (ie, add stabilising noise)
 	public static boolean SWITCH_HEADING_KNOWN= true; // if 1, the vehicle heading is observed directly at each iteration
 	public static boolean SWITCH_SEED_RANDOM= false; // if not 0, seed the randn() with its value at beginning of simulation (for repeatability)
